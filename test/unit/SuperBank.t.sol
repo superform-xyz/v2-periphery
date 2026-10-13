@@ -1134,6 +1134,33 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         superBank.executeHooks(executionData);
     }
 
+    /// @dev Layer 0 (52-byte strategy header) + Layer 1 swap tail + Layer 2 payload, per
+    ///      SwapCalldataLayout. Built through v2-core's helper so the offsets live in one place,
+    ///      and kept out of the test body to stay under the stack limit.
+    function _odosSwapData(
+        address inputToken,
+        address outputToken,
+        uint256 amount,
+        address receiver
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        return _createOdosSwapHookData(
+            inputToken,
+            amount, // inputAmount
+            receiver, // inputReceiver
+            outputToken,
+            amount, // outputQuote
+            amount - amount * 1e4 / 1e5, // outputMin
+            bytes(""), // pathDefinition
+            address(0), // executor
+            uint32(0), // referralCode
+            false // usePrevHookAmount
+        );
+    }
+
     function test_SuperBank_SwapHookOdos() public {
         vm.startPrank(sGovernor);
         superGovernor.grantRole(superGovernor.BANK_MANAGER_ROLE(), address(this));
@@ -1164,20 +1191,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         QuoteOutputToken[] memory quoteOutputTokens = new QuoteOutputToken[](1);
         quoteOutputTokens[0] = QuoteOutputToken({ tokenAddress: address(up), proportion: 1 });
 
-        bytes memory odosCalldata = abi.encodePacked(
-            address(token),
-            amount,
-            address(this),
-            address(up),
-            amount,
-            amount - amount * 1e4 / 1e5,
-            true,
-            uint256(0),
-            bytes(""),
-            address(0),
-            uint32(0),
-            false
-        );
+        bytes memory odosCalldata = _odosSwapData(address(token), address(up), amount, address(this));
         bytes[] memory hooksData = new bytes[](2);
         hooksData[0] = _createApproveHookData(address(token), address(odosRouter), amount, false);
         hooksData[1] = odosCalldata;
@@ -1195,8 +1209,8 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
         bytes memory hookArgs1 = abi.encodePacked(address(token), address(odosRouter));
         bytes32 hookLeaf1 = keccak256(bytes.concat(keccak256(abi.encode(address(approveHook), hookArgs1))));
 
-        // SwapOdosV2Hook.inspect() returns: abi.encodePacked(executor)
-        bytes memory hookArgs2 = abi.encodePacked(address(0));
+        // SwapOdosV2Hook.inspect() returns: abi.encodePacked(outputToken)
+        bytes memory hookArgs2 = abi.encodePacked(address(up));
         bytes32 hookLeaf2 = keccak256(bytes.concat(keccak256(abi.encode(address(odosHook), hookArgs2))));
 
         bytes32 merkleRoot1 = hookLeaf1;
@@ -1333,7 +1347,9 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
             intentAmounts[0] = 100e6;
             bytes memory destinationData =
                 abi.encode(bytes("0x123"), bytes("0x123"), address(superBank), dstTokens, intentAmounts);
-            hooksData[0] = abi.encodePacked(
+            // Layer 0 (52-byte strategy header) is concatenated separately: folding it into the
+            // encodePacked below pushes that call over the stack limit.
+            bytes memory acrossTail = abi.encodePacked(
                 uint256(0),
                 address(superBank),
                 CHAIN_8453_USDC,
@@ -1347,6 +1363,7 @@ contract SuperBankTest is PeripheryHelpers, InternalHelpers, OdosAPIParser {
                 false,
                 destinationData
             );
+            hooksData[0] = bytes.concat(bytes(new bytes(52)), acrossTail);
 
             address[] memory hooksAddresses = new address[](1);
             hooksAddresses[0] = address(acrossSendFundsAndExecuteOnDstHook);

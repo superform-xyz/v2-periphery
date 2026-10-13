@@ -417,12 +417,12 @@ contract MorphoLendYieldSourceOracleTest is Test {
     }
 
     function test_ppsIncreasesWithInterest_8dec() public {
-        (address srcId,, Id mktId) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
+        (address srcId,, Id mktId) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
         uint256 largeShares = 100e8;
         uint256 assetsBefore = oracle.getAssetOutput(srcId, address(0), largeShares);
 
         // Simulate interest: increase supply assets (same shares)
-        morpho.setMarket(mktId, 1_050e8, 1_000e14, 500e8, 500e14, uint128(block.timestamp), 0);
+        morpho.setMarket(mktId, 1050e8, 1000e14, 500e8, 500e14, uint128(block.timestamp), 0);
 
         uint256 assetsAfter = oracle.getAssetOutput(srcId, address(0), largeShares);
         assertGt(assetsAfter, assetsBefore, "8-dec: interest should increase asset output");
@@ -431,36 +431,36 @@ contract MorphoLendYieldSourceOracleTest is Test {
     // --- 8 decimal tests (WBTC-like) ---
 
     function test_decimals_8dec() public {
-        (address srcId,,) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
+        (address srcId,,) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
         assertEq(oracle.decimals(srcId), 8);
     }
 
     function test_getPricePerShare_8dec() public {
-        (address srcId,,) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
+        (address srcId,,) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
         uint256 pps = oracle.getPricePerShare(srcId);
-        uint256 expected = uint256(10 ** 8).toAssetsDown(1_000e8, 1_000e14);
+        uint256 expected = uint256(10 ** 8).toAssetsDown(1000e8, 1000e14);
         assertEq(pps, expected);
         assertGt(pps, 0);
     }
 
     function test_getAssetOutput_8dec() public {
-        (address srcId,,) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
+        (address srcId,,) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
         uint256 sharesIn = 10e8;
         uint256 assets = oracle.getAssetOutput(srcId, address(0), sharesIn);
-        uint256 expected = sharesIn.toAssetsDown(1_000e8, 1_000e14);
+        uint256 expected = sharesIn.toAssetsDown(1000e8, 1000e14);
         assertEq(assets, expected);
     }
 
     function test_getShareOutput_8dec() public {
-        (address srcId,,) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
+        (address srcId,,) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
         uint256 assetsIn = 10e8;
         uint256 shares = oracle.getShareOutput(srcId, address(0), assetsIn);
-        uint256 expected = assetsIn.toSharesDown(1_000e8, 1_000e14);
+        uint256 expected = assetsIn.toSharesDown(1000e8, 1000e14);
         assertEq(shares, expected);
     }
 
     function test_withdrawalSharesGeDep_8dec() public {
-        (address srcId,,) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
+        (address srcId,,) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
         uint256 assetsIn = 10e8;
         assertGe(
             oracle.getWithdrawalShareOutput(srcId, address(0), assetsIn),
@@ -469,7 +469,7 @@ contract MorphoLendYieldSourceOracleTest is Test {
     }
 
     function test_roundTrip_8dec() public {
-        (address srcId,,) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
+        (address srcId,,) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
         uint256 sharesIn = 50e8;
         uint256 assets = oracle.getAssetOutput(srcId, address(0), sharesIn);
         uint256 sharesBack = oracle.getShareOutput(srcId, address(0), assets);
@@ -477,12 +477,12 @@ contract MorphoLendYieldSourceOracleTest is Test {
     }
 
     function test_tvl_8dec() public {
-        (address srcId,, Id mktId) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
-        assertEq(oracle.getTVL(srcId), 1_000e8);
+        (address srcId,, Id mktId) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
+        assertEq(oracle.getTVL(srcId), 1000e8);
 
         morpho.setPosition(mktId, user, 10e8, 0, 0);
         uint256 ownerTvl = oracle.getTVLByOwnerOfShares(srcId, user);
-        uint256 expected = uint256(10e8).toAssetsDown(1_000e8, 1_000e14);
+        uint256 expected = uint256(10e8).toAssetsDown(1000e8, 1000e14);
         assertEq(ownerTvl, expected);
     }
 
@@ -490,7 +490,7 @@ contract MorphoLendYieldSourceOracleTest is Test {
 
     function test_crossDecimal_sameOracleTracksMultipleDecimals() public {
         (address src6,,) = _setupDecimalMarket(6, 1_000_000e6, 1_000_000e12, 500_000e6, 500_000e12);
-        (address src8,,) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
+        (address src8,,) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
 
         assertEq(oracle.decimals(src6), 6);
         assertEq(oracle.decimals(src8), 8);
@@ -503,7 +503,7 @@ contract MorphoLendYieldSourceOracleTest is Test {
 
         // Each market's TVL uses its own decimals
         assertEq(oracle.getTVL(src6), 1_000_000e6);
-        assertEq(oracle.getTVL(src8), 1_000e8);
+        assertEq(oracle.getTVL(src8), 1000e8);
         assertEq(oracle.getTVL(yieldSourceId), TOTAL_SUPPLY_ASSETS);
     }
 
@@ -561,6 +561,10 @@ contract MorphoLendYieldSourceOracleTest is Test {
     }
 
     /// @notice withdrawalShares >= depositShares for same assets (roundUp vs roundDown)
+    /// @dev Inputs are capped at type(uint128).max / 2 like test_fuzz_roundTrip_assetsNeverGrow:
+    ///      Morpho's own SharesMathLib multiplies `assetsIn * (totalShares + VIRTUAL_SHARES)`
+    ///      with the raw `*` operator, so both operands near type(uint128).max overflow uint256
+    ///      (panic 0x11) — a region unreachable on real markets under supply caps.
     function test_fuzz_withdrawalSharesGeqDepositShares(
         uint128 totalSupplyAssets_,
         uint128 totalSupplyShares_,
@@ -568,9 +572,10 @@ contract MorphoLendYieldSourceOracleTest is Test {
     )
         public
     {
-        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, type(uint128).max));
-        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, type(uint128).max));
-        assetsIn = uint128(bound(assetsIn, 1, type(uint128).max));
+        uint128 MAX = type(uint128).max / 2;
+        totalSupplyAssets_ = uint128(bound(totalSupplyAssets_, 0, MAX));
+        totalSupplyShares_ = uint128(bound(totalSupplyShares_, 0, MAX));
+        assetsIn = uint128(bound(assetsIn, 1, MAX));
 
         morpho.setMarket(marketId, totalSupplyAssets_, totalSupplyShares_, 0, 0, uint128(block.timestamp), 0);
 
@@ -640,12 +645,12 @@ contract MorphoLendYieldSourceOracleTest is Test {
         // 6 decimals
         (address src6,,) = _setupDecimalMarket(6, 1_000_000e6, 1_000_000e12, 500_000e6, 500_000e12);
         // 8 decimals
-        (address src8,,) = _setupDecimalMarket(8, 1_000e8, 1_000e14, 500e8, 500e14);
+        (address src8,,) = _setupDecimalMarket(8, 1000e8, 1000e14, 500e8, 500e14);
 
         // Record before values
         uint256 shares6 = 1_000_000e6;
         uint256 shares8 = 100e8;
-        uint256 shares18 = 1_000e18;
+        uint256 shares18 = 1000e18;
 
         uint256 before6 = oracle.getAssetOutput(src6, address(0), shares6);
         uint256 before8 = oracle.getAssetOutput(src8, address(0), shares8);

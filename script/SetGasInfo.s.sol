@@ -7,16 +7,18 @@ import { console2 } from "forge-std/console2.sol";
 
 /// @title SetGasInfo
 /// @notice Emergency script to set gas info for ECDSAPPSOracle on SuperGovernor
-/// @dev This script should only be run on mainnet as gas info is mainnet-specific
+/// @dev Runs on any configured chain: gas per entry is a protocol constant (GAS_PER_ENTRY),
+///      and every chain with upkeep payments enabled needs it set or getUpkeepCostPerSingleUpdate
+///      reverts with NO_VALID_REPORTED_PRICES (a zero gas amount quotes to 0, which the oracle skips).
 /// @dev The script temporarily grants GAS_MANAGER_ROLE to deployer if needed, then revokes it
 contract SetGasInfo is DeployV2Base {
     /*//////////////////////////////////////////////////////////////
                             MAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Set gas info for ECDSAPPSOracle (mainnet only)
+    /// @notice Set gas info for ECDSAPPSOracle on any configured chain
     /// @param env Environment (0 = production, 2 = staging)
-    /// @param chainId Chain ID (must be mainnet = 1)
+    /// @param chainId Chain ID to configure (must be a chain known to ConfigBase)
     function run(uint256 env, uint64 chainId) external broadcast(env) {
         _setGasInfo(env, chainId);
     }
@@ -33,9 +35,9 @@ contract SetGasInfo is DeployV2Base {
         console2.log("Chain ID:", chainId);
         console2.log("Environment:", env);
 
-        // Validate chain ID (mainnet only)
-        require(chainId == MAINNET_CHAIN_ID, "GAS_INFO_MAINNET_ONLY");
-        console2.log("Chain validation passed: mainnet");
+        // Validate the chain is one ConfigBase knows about (guards typos in the chainId argument)
+        require(bytes(chainNames[chainId]).length > 0, "GAS_INFO_UNKNOWN_CHAIN");
+        console2.log("Chain validation passed:", chainNames[chainId]);
 
         // Get SuperGovernor address
         address superGovernorAddr = _getSuperGovernorAddress(chainId, env);
@@ -202,6 +204,9 @@ contract SetGasInfo is DeployV2Base {
         if (chainId == 10) return "Optimism";
         if (chainId == 999) return "HyperEVM";
         if (chainId == 14) return "Flare";
+        if (chainId == 56) return "BNB";
+        if (chainId == 4663) return "RH";
+        if (chainId == 5042) return "Arc";
         return "Unknown";
     }
 

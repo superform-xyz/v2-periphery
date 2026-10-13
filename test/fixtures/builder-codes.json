@@ -1,0 +1,12 @@
+[
+  {
+    "code": "baseapp",
+    "registry": { "ChainID": 8453, "Address": "0xcccccccccccccccccccccccccccccccccccccccc" },
+    "suffix": "0xcccccccccccccccccccccccccccccccccccccccc21050262617365617070070180218021802180218021802180218021"
+  },
+  {
+    "code": "a",
+    "registry": { "ChainID": 1, "Address": "0xcccccccccccccccccccccccccccccccccccccccc" },
+    "suffix": "0xcccccccccccccccccccccccccccccccccccccccc010161010180218021802180218021802180218021"
+  }
+]

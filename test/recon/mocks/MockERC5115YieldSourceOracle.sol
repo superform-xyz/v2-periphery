@@ -91,18 +91,21 @@ contract MockERC5115YieldSourceOracle is IYieldSourceOracle {
     )
         external
         view
-        returns (uint256[][] memory)
+        returns (uint256[][] memory, bool[][] memory)
     {
         uint256[][] memory result = new uint256[][](yieldSourceAddresses.length);
+        bool[][] memory succeeded = new bool[][](yieldSourceAddresses.length);
         for (uint256 i = 0; i < yieldSourceAddresses.length; i++) {
             result[i] = new uint256[](ownersOfShares[i].length);
+            succeeded[i] = new bool[](ownersOfShares[i].length);
             uint256 exchangeRate = MockERC5115Tester(yieldSourceAddresses[i]).exchangeRate();
             for (uint256 j = 0; j < ownersOfShares[i].length; j++) {
                 uint256 shares = MockERC5115Tester(yieldSourceAddresses[i]).balanceOf(ownersOfShares[i][j]);
                 result[i][j] = (shares * exchangeRate) / 1e18;
+                succeeded[i][j] = true;
             }
         }
-        return result;
+        return (result, succeeded);
     }
 
     function getTVLMultiple(address[] memory yieldSourceAddresses) external view returns (uint256[] memory) {

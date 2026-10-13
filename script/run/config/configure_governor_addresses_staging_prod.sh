@@ -26,6 +26,9 @@ set -euo pipefail
 SKIP_NETWORKS=(
     "1"      # Ethereum - already configured
     "8453"   # Base - already configured
+    "999"    # HyperEVM - already configured
+    "14"     # Flare - already configured
+    "4663"   # RH - already configured
 )
 
 # Function to check if a network should be skipped
@@ -147,7 +150,7 @@ for network_def in "${NETWORKS[@]}"; do
     # Skip etherscan verification for HyperEVM
     VERIFY_FLAGS=""
     SLOW_FLAG=""
-    if [ "$network_id" = "999" ] || [ "$network_id" = "14" ]; then
+    if [ "$network_id" = "999" ] || [ "$network_id" = "14" ] || [ "$network_id" = "5042" ]; then
         SLOW_FLAG="--slow"
     fi
 

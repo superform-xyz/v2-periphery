@@ -4,7 +4,7 @@
 # Deploy SuperformGasOracle Script
 ###################################################################################
 #
-# Deploys SuperformGasOracle on HyperEVM (999).
+# Deploys SuperformGasOracle on the chains listed in SUPPORTED_CHAINS (currently Arc / 5042).
 #
 # This oracle provides keeper-updated gas prices for chains where Chainlink's
 # Fast Gas feed is not available.
@@ -52,10 +52,17 @@ readonly DEFAULT_GAS_PRICE=1000000
 readonly OWNER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
 
 # Supported chains: "CHAIN_ID:CHAIN_NAME"
+# Convention: comment a chain out once its oracle is deployed. The "already deployed" check
+# computes the CREATE2 address from the DEFAULT initial gas price, so a chain whose oracle was
+# deployed with a different price (RH: 0x986c...) would NOT be detected and execute mode would
+# deploy a second oracle there. NOTE: simulate mode also rewrites {Chain}-latest.json with the
+# computed address - only run it against chains you intend to deploy.
 readonly SUPPORTED_CHAINS=(
-    # "999:HyperEVM"
-    "14:Flare"
-    "4663:RH"
+    # "999:HyperEVM"   # deployed
+    # "14:Flare"       # deployed 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc
+    # "4663:RH"        # deployed 0x986c1431D8e157723dBCB2a30F1FF7b4cD29bBc0 (non-default args)
+    # "56:BNB"         # deployed 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc
+    "5042:Arc"         # USDC-native gas (18 dec); keeper pushes gas price in gwei like every other chain
 )
 
 ###################################################################################
@@ -94,7 +101,7 @@ Examples:
     # Execute with custom gas price
     $0 staging execute v2-supervaults 50
 
-Note: Deploys on Base (8453) and HyperEVM (999). Already-deployed chains are skipped.
+Note: Deploys on every chain listed in SUPPORTED_CHAINS (currently Arc/5042). Comment a chain out once deployed.
 
 EOF
     exit 1
@@ -156,6 +163,12 @@ get_chain_rpc_url() {
         4663)
             echo "${RH_MAINNET:-}"
             ;;
+        56)
+            echo "${BSC_MAINNET:-}"
+            ;;
+        5042)
+            echo "${ARC_MAINNET:-}"
+            ;;
         *)
             echo ""
             ;;
@@ -190,6 +203,8 @@ deploy_on_chain() {
         if [ "$chain_id" != "999" ] && [ "$chain_id" != "14" ] && [ "$chain_id" != "4663" ]; then
             VERIFY_FLAG="--verify"
             ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
+            # forge has no built-in entry for chain 5042; point it at the Etherscan V2 endpoint.
+            [ "$chain_id" = "5042" ] && ETHERSCAN_FLAGS="$ETHERSCAN_FLAGS --verifier-url https://api.etherscan.io/v2/api?chainid=5042"
         fi
         log "INFO" "Mode: Execute (will broadcast using account: $account)"
     elif [ "$mode" = "simulate" ]; then
@@ -309,7 +324,7 @@ main() {
     log "INFO" "Mode: $mode"
     log "INFO" "Owner (v2-supervaults): $OWNER"
     log "INFO" "Initial Gas Price: $gas_price (Gwei, 0 decimals)"
-    log "INFO" "Target Chains: HyperEVM (999)"
+    log "INFO" "Target Chains: ${SUPPORTED_CHAINS[*]}"
     log "INFO" "============================================"
 
     local successful_chains=()

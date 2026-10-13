@@ -9,13 +9,15 @@
 #   is set up.
 #
 # Usage:
-#   ./transfer_super_governor_role.sh <environment> <mode> [account] [--slow]
+#   ./transfer_super_governor_role.sh <environment> <mode> [account] [--slow] [--chain <id>]
 #
 #   Parameters:
 #     environment: "staging" or "prod"
 #     mode: "simulate" or "execute"
 #     account: Account name (required for execute mode, e.g., "v2-supervaults")
 #     --slow: Optional flag to use polling instead of websockets for tx confirmation
+#     --chain <id>: Optional - only process this chain (default: every network in the config;
+#                   already-transferred chains are skipped by the forge script)
 #
 #   Examples:
 #     ./transfer_super_governor_role.sh staging simulate
@@ -354,8 +356,16 @@ transfer_all_networks() {
     local total_count=0
     local skipped_count=0
 
-    # Get all supported networks
+    # Get all supported networks (or only the --chain filter)
     local supported_network_ids=$(get_supported_networks)
+    if [ -n "${CHAIN_FILTER:-}" ]; then
+        if ! is_network_supported "$CHAIN_FILTER"; then
+            log "ERROR" "Chain $CHAIN_FILTER is not in the network configuration"
+            return 1
+        fi
+        supported_network_ids="$CHAIN_FILTER"
+        log "INFO" "Chain filter active: only processing chain $CHAIN_FILTER"
+    fi
 
     if [ -z "$supported_network_ids" ]; then
         log "ERROR" "No networks found in network configuration"
@@ -430,11 +440,12 @@ transfer_all_networks() {
 main() {
     # Check arguments
     if [ $# -lt 2 ]; then
-        log "ERROR" "Usage: $0 <environment> <mode> [account] [--slow]"
+        log "ERROR" "Usage: $0 <environment> <mode> [account] [--slow] [--chain <id>]"
         log "ERROR" "  environment: 'staging' or 'prod'"
         log "ERROR" "  mode: 'simulate' or 'execute'"
         log "ERROR" "  account: Account name (required for execute mode)"
         log "ERROR" "  --slow: Use polling instead of websockets for tx confirmation"
+        log "ERROR" "  --chain <id>: Only process this chain (e.g. --chain 56)"
         log "ERROR" ""
         log "ERROR" "Examples:"
         log "ERROR" "  $0 staging simulate"
@@ -453,6 +464,7 @@ main() {
     local mode=$2
     local account=""
     local slow_flag="false"
+    CHAIN_FILTER=""
 
     # Parse remaining arguments
     shift 2
@@ -460,6 +472,10 @@ main() {
         case "$1" in
             --slow)
                 slow_flag="true"
+                ;;
+            --chain)
+                shift
+                CHAIN_FILTER="$1"
                 ;;
             *)
                 if [ -z "$account" ]; then

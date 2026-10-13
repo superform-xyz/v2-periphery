@@ -12,5 +12,6 @@
   "SuperVaultEscrow": "0xC961bd0356b2318820bf79Fe21D23269A42B8863",
   "SuperVaultStrategy": "0xaE15a0Cec3ef44843E7A88e0E5FA7A7527e6BC73",
   "SuperVaultBatchOperator": "0x7c2C7D20F2912a835284e7d8c00EceAF02fbCf38",
-  "SuperVaultExecutor": "0x7AC580B336F6c656Cb030291A70dF0bfC9D25f4b"
+  "SuperVaultExecutor": "0x7AC580B336F6c656Cb030291A70dF0bfC9D25f4b",
+  "BasefeeGasOracle": "0x9334a15f007eF4b58Ac8B663f71e31a58b43777c"
 }

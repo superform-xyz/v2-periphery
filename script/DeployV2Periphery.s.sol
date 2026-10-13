@@ -141,9 +141,12 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         totalGasEstimate += _estimateContractGas(SUPER_GOVERNOR_KEY, chainId, env);
         totalGasEstimate += _estimateContractGas(ECDSAPPS_ORACLE_KEY, chainId, env);
         totalGasEstimate += _estimateContractGas(FIXED_PRICE_ORACLE_KEY, chainId, env);
-        // SuperOracle (mainnet/HyperEVM/Flare/RH) or SuperOracleL2 (L2 chains with sequencer uptime feed)
-        if (chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
-            || chainId == ROBINHOOD_CHAIN_ID) {
+        // SuperOracle (mainnet/HyperEVM/Flare/RH/BNB/Arc) or SuperOracleL2 (L2 chains with sequencer uptime feed)
+        if (
+            chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
+                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
+                || chainId == PLATABERGET_CHAIN_ID
+        ) {
             totalGasEstimate += _estimateContractGas(SUPER_ORACLE_KEY, chainId, env);
         } else {
             totalGasEstimate += _estimateContractGas(SUPER_ORACLE_L2_KEY, chainId, env);
@@ -369,8 +372,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         __checkContract(SUPER_GOVERNOR_KEY, __getSalt(SUPER_GOVERNOR_KEY), args, env);
 
         return DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(__getBytecode(SUPER_GOVERNOR_KEY, env), args),
-            __getSalt(SUPER_GOVERNOR_KEY)
+            abi.encodePacked(__getBytecode(SUPER_GOVERNOR_KEY, env), args), __getSalt(SUPER_GOVERNOR_KEY)
         );
     }
 
@@ -384,14 +386,10 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
     function _checkFixedPriceOracle() internal returns (address) {
         bytes memory args = abi.encode(INITIAL_UP_PRICE, UP_PRICE_DECIMALS, configuration.deployer);
         __checkContractWithBytecode(
-            FIXED_PRICE_ORACLE_KEY,
-            __getSalt(FIXED_PRICE_ORACLE_KEY),
-            type(FixedPriceOracle).creationCode,
-            args
+            FIXED_PRICE_ORACLE_KEY, __getSalt(FIXED_PRICE_ORACLE_KEY), type(FixedPriceOracle).creationCode, args
         );
         return DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(type(FixedPriceOracle).creationCode, args),
-            __getSalt(FIXED_PRICE_ORACLE_KEY)
+            abi.encodePacked(type(FixedPriceOracle).creationCode, args), __getSalt(FIXED_PRICE_ORACLE_KEY)
         );
     }
 
@@ -412,16 +410,14 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         // Compute implementation addresses for aggregator
         address vaultImpl = DeterministicDeployerLib.computeAddress(
-            abi.encodePacked(__getBytecode(SUPER_VAULT_KEY, env), vaultArgs),
-            __getSalt(SUPER_VAULT_KEY)
+            abi.encodePacked(__getBytecode(SUPER_VAULT_KEY, env), vaultArgs), __getSalt(SUPER_VAULT_KEY)
         );
         address strategyImpl = DeterministicDeployerLib.computeAddress(
             abi.encodePacked(__getBytecode(SUPER_VAULT_STRATEGY_KEY, env), vaultArgs),
             __getSalt(SUPER_VAULT_STRATEGY_KEY)
         );
         address escrowImpl = DeterministicDeployerLib.computeAddress(
-            __getBytecode(SUPER_VAULT_ESCROW_KEY, env),
-            __getSalt(SUPER_VAULT_ESCROW_KEY)
+            __getBytecode(SUPER_VAULT_ESCROW_KEY, env), __getSalt(SUPER_VAULT_ESCROW_KEY)
         );
 
         // Check aggregator
@@ -431,7 +427,14 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
     /// @notice Check SuperOracle (mainnet) or SuperOracleL2 (L2s) with proper oracle feed configuration
     /// @dev Both mainnet and L2s use the same 3 feeds (GAS->WEI, ETH->USD, UP->USD)
-    function _checkSuperOracle(uint64 chainId, address superGovernorAddr, address fixedPriceOracleAddr, uint256 env) internal {
+    function _checkSuperOracle(
+        uint64 chainId,
+        address superGovernorAddr,
+        address fixedPriceOracleAddr,
+        uint256 env
+    )
+        internal
+    {
         address[] memory bases = new address[](3);
         address[] memory quotes = new address[](3);
         bytes32[] memory providers = new bytes32[](3);
@@ -452,7 +455,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             upToken = UP_TOKEN_BASE;
             // Log warning if UP token is not deployed (non-blocking for simulation)
             if (UP_TOKEN_BASE.code.length == 0) {
-                console2.log("[WARNING] UP_TOKEN_BASE not deployed - ensure UP token is deployed before actual deployment");
+                console2.log(
+                    "[WARNING] UP_TOKEN_BASE not deployed - ensure UP token is deployed before actual deployment"
+                );
             }
         } else if (chainId == HYPEREVM_CHAIN_ID) {
             // Use staging addresses when env == 2
@@ -460,13 +465,17 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM_STAGING;
                 upToken = UP_TOKEN_HYPEREVM_STAGING;
                 if (UP_TOKEN_HYPEREVM_STAGING.code.length == 0) {
-                    console2.log("[WARNING] UP_TOKEN_HYPEREVM_STAGING not deployed - ensure UpOFT is deployed before actual deployment");
+                    console2.log(
+                        "[WARNING] UP_TOKEN_HYPEREVM_STAGING not deployed - ensure UpOFT is deployed before actual deployment"
+                    );
                 }
             } else {
                 gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM;
                 upToken = UP_TOKEN_HYPEREVM;
                 if (UP_TOKEN_HYPEREVM.code.length == 0) {
-                    console2.log("[WARNING] UP_TOKEN_HYPEREVM not deployed - ensure UpOFT is deployed before actual deployment");
+                    console2.log(
+                        "[WARNING] UP_TOKEN_HYPEREVM not deployed - ensure UpOFT is deployed before actual deployment"
+                    );
                 }
             }
             ethUsdOracle = ORACLE_ETH_USD_HYPEREVM;
@@ -476,13 +485,17 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 gasOracle = ORACLE_GAS_TO_WEI_FLARE_STAGING;
                 upToken = UP_TOKEN_FLARE_STAGING;
                 if (UP_TOKEN_FLARE_STAGING.code.length == 0) {
-                    console2.log("[WARNING] UP_TOKEN_FLARE_STAGING not deployed - ensure UpOFT is deployed before actual deployment");
+                    console2.log(
+                        "[WARNING] UP_TOKEN_FLARE_STAGING not deployed - ensure UpOFT is deployed before actual deployment"
+                    );
                 }
             } else {
                 gasOracle = ORACLE_GAS_TO_WEI_FLARE;
                 upToken = UP_TOKEN_FLARE;
                 if (UP_TOKEN_FLARE.code.length == 0) {
-                    console2.log("[WARNING] UP_TOKEN_FLARE not deployed - ensure UpOFT is deployed before actual deployment");
+                    console2.log(
+                        "[WARNING] UP_TOKEN_FLARE not deployed - ensure UpOFT is deployed before actual deployment"
+                    );
                 }
             }
             ethUsdOracle = ORACLE_FLR_USD_FLARE;
@@ -494,6 +507,38 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] UP_TOKEN_RH not deployed - ensure UpOFT is deployed before actual deployment");
             }
             ethUsdOracle = ORACLE_ETH_USD_RH;
+        } else if (chainId == BNB_CHAIN_ID) {
+            // BNB Chain uses Chainlink BNB/USD (8 decimals) and SuperformGasOracle; no sequencer feed
+            gasOracle = ORACLE_GAS_TO_WEI_BNB;
+            upToken = UP_TOKEN_BNB;
+            if (UP_TOKEN_BNB.code.length == 0) {
+                console2.log("[WARNING] UP_TOKEN_BNB not deployed - ensure UpOFT is deployed before actual deployment");
+            }
+            if (ORACLE_GAS_TO_WEI_BNB.code.length == 0) {
+                console2.log("[WARNING] ORACLE_GAS_TO_WEI_BNB not deployed - deploy SuperformGasOracle first");
+            }
+            ethUsdOracle = ORACLE_BNB_USD_BNB;
+        } else if (chainId == ARC_CHAIN_ID) {
+            // Arc (Circle L1, USDC-native gas): Chainlink USDC/USD (8 decimals) as the NATIVE/USD feed and
+            // SuperformGasOracle for gas; L1 architecture, no sequencer feed
+            gasOracle = ORACLE_GAS_TO_WEI_ARC;
+            upToken = UP_TOKEN_ARC;
+            if (UP_TOKEN_ARC.code.length == 0) {
+                console2.log("[WARNING] UP_TOKEN_ARC not deployed - ensure UpOFT is deployed before actual deployment");
+            }
+            if (ORACLE_GAS_TO_WEI_ARC.code.length == 0) {
+                console2.log("[WARNING] ORACLE_GAS_TO_WEI_ARC not deployed - deploy SuperformGasOracle first");
+            }
+            ethUsdOracle = ORACLE_USDC_USD_ARC;
+        } else if (chainId == PLATABERGET_CHAIN_ID) {
+            // Plataberget (Glamsterdam testnet): keeper-pushed SuperformGasOracle serves as BOTH
+            // gas and ETH/USD feed (no Chainlink on the devnet); UP token intentionally absent.
+            gasOracle = ORACLE_GAS_TO_WEI_PLATABERGET;
+            upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP (no UpOFT)
+            if (ORACLE_GAS_TO_WEI_PLATABERGET.code.length == 0) {
+                console2.log("[WARNING] SuperformGasOracle not deployed on Plataberget - deploy it first");
+            }
+            ethUsdOracle = ORACLE_GAS_TO_WEI_PLATABERGET;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -518,8 +563,11 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
 
         bytes memory superOracleArgs = abi.encode(superGovernorAddr, bases, quotes, providers, feeds);
 
-        if (chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
-            || chainId == ROBINHOOD_CHAIN_ID) {
+        if (
+            chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
+                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
+                || chainId == PLATABERGET_CHAIN_ID
+        ) {
             __checkContractWithBytecode(
                 SUPER_ORACLE_KEY, __getSalt(SUPER_ORACLE_KEY), type(SuperOracle).creationCode, superOracleArgs
             );
@@ -813,7 +861,9 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             upToken = UP_TOKEN_BASE;
             // Log warning if UP token is not deployed (non-blocking for simulation)
             if (UP_TOKEN_BASE.code.length == 0) {
-                console2.log("[WARNING] UP_TOKEN_BASE not deployed - ensure UP token is deployed before actual deployment");
+                console2.log(
+                    "[WARNING] UP_TOKEN_BASE not deployed - ensure UP token is deployed before actual deployment"
+                );
             }
         } else if (chainId == HYPEREVM_CHAIN_ID) {
             // Use staging addresses when env == 2
@@ -821,13 +871,17 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM_STAGING;
                 upToken = UP_TOKEN_HYPEREVM_STAGING;
                 if (UP_TOKEN_HYPEREVM_STAGING.code.length == 0) {
-                    console2.log("[WARNING] UP_TOKEN_HYPEREVM_STAGING not deployed - ensure UpOFT is deployed before actual deployment");
+                    console2.log(
+                        "[WARNING] UP_TOKEN_HYPEREVM_STAGING not deployed - ensure UpOFT is deployed before actual deployment"
+                    );
                 }
             } else {
                 gasOracle = ORACLE_GAS_TO_WEI_HYPEREVM;
                 upToken = UP_TOKEN_HYPEREVM;
                 if (UP_TOKEN_HYPEREVM.code.length == 0) {
-                    console2.log("[WARNING] UP_TOKEN_HYPEREVM not deployed - ensure UpOFT is deployed before actual deployment");
+                    console2.log(
+                        "[WARNING] UP_TOKEN_HYPEREVM not deployed - ensure UpOFT is deployed before actual deployment"
+                    );
                 }
             }
             ethUsdOracle = ORACLE_ETH_USD_HYPEREVM;
@@ -837,13 +891,17 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 gasOracle = ORACLE_GAS_TO_WEI_FLARE_STAGING;
                 upToken = UP_TOKEN_FLARE_STAGING;
                 if (UP_TOKEN_FLARE_STAGING.code.length == 0) {
-                    console2.log("[WARNING] UP_TOKEN_FLARE_STAGING not deployed - ensure UpOFT is deployed before actual deployment");
+                    console2.log(
+                        "[WARNING] UP_TOKEN_FLARE_STAGING not deployed - ensure UpOFT is deployed before actual deployment"
+                    );
                 }
             } else {
                 gasOracle = ORACLE_GAS_TO_WEI_FLARE;
                 upToken = UP_TOKEN_FLARE;
                 if (UP_TOKEN_FLARE.code.length == 0) {
-                    console2.log("[WARNING] UP_TOKEN_FLARE not deployed - ensure UpOFT is deployed before actual deployment");
+                    console2.log(
+                        "[WARNING] UP_TOKEN_FLARE not deployed - ensure UpOFT is deployed before actual deployment"
+                    );
                 }
             }
             ethUsdOracle = ORACLE_FLR_USD_FLARE;
@@ -854,6 +912,38 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] UP_TOKEN_RH not deployed - ensure UpOFT is deployed before actual deployment");
             }
             ethUsdOracle = ORACLE_ETH_USD_RH;
+        } else if (chainId == BNB_CHAIN_ID) {
+            // BNB Chain uses Chainlink BNB/USD (8 decimals) and SuperformGasOracle; no sequencer feed
+            gasOracle = ORACLE_GAS_TO_WEI_BNB;
+            upToken = UP_TOKEN_BNB;
+            if (UP_TOKEN_BNB.code.length == 0) {
+                console2.log("[WARNING] UP_TOKEN_BNB not deployed - ensure UpOFT is deployed before actual deployment");
+            }
+            if (ORACLE_GAS_TO_WEI_BNB.code.length == 0) {
+                console2.log("[WARNING] ORACLE_GAS_TO_WEI_BNB not deployed - deploy SuperformGasOracle first");
+            }
+            ethUsdOracle = ORACLE_BNB_USD_BNB;
+        } else if (chainId == ARC_CHAIN_ID) {
+            // Arc (Circle L1, USDC-native gas): Chainlink USDC/USD (8 decimals) as the NATIVE/USD feed and
+            // SuperformGasOracle for gas; L1 architecture, no sequencer feed
+            gasOracle = ORACLE_GAS_TO_WEI_ARC;
+            upToken = UP_TOKEN_ARC;
+            if (UP_TOKEN_ARC.code.length == 0) {
+                console2.log("[WARNING] UP_TOKEN_ARC not deployed - ensure UpOFT is deployed before actual deployment");
+            }
+            if (ORACLE_GAS_TO_WEI_ARC.code.length == 0) {
+                console2.log("[WARNING] ORACLE_GAS_TO_WEI_ARC not deployed - deploy SuperformGasOracle first");
+            }
+            ethUsdOracle = ORACLE_USDC_USD_ARC;
+        } else if (chainId == PLATABERGET_CHAIN_ID) {
+            // Plataberget (Glamsterdam testnet): keeper-pushed SuperformGasOracle serves as BOTH
+            // gas and ETH/USD feed (no Chainlink on the devnet); UP token intentionally absent.
+            gasOracle = ORACLE_GAS_TO_WEI_PLATABERGET;
+            upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP (no UpOFT)
+            if (ORACLE_GAS_TO_WEI_PLATABERGET.code.length == 0) {
+                console2.log("[WARNING] SuperformGasOracle not deployed on Plataberget - deploy it first");
+            }
+            ethUsdOracle = ORACLE_GAS_TO_WEI_PLATABERGET;
         } else {
             revert("Oracle addresses not configured for this chain");
         }
@@ -876,8 +966,11 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         providers[2] = PROVIDER_SUPERFORM;
         feeds[2] = fixedPriceOracle;
 
-        if (chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
-            || chainId == ROBINHOOD_CHAIN_ID) {
+        if (
+            chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
+                || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
+                || chainId == PLATABERGET_CHAIN_ID
+        ) {
             superOracle = __deployContractIfNeeded(
                 SUPER_ORACLE_KEY,
                 chainId,
@@ -999,8 +1092,13 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         // Step 6: Configure uptime feed for L2 chains (Chainlink oracles may be stale during sequencer downtime)
         // Skip for test environment (env == 1) since oracles not deployed
         // Skip for HyperEVM (no sequencer uptime feed)
-        if (env != 1 && chainId != MAINNET_CHAIN_ID && chainId != HYPEREVM_CHAIN_ID && chainId != FLARE_CHAIN_ID
-            && chainId != ROBINHOOD_CHAIN_ID) {
+        // Skip for Arc (L1 architecture, no sequencer)
+        // Skip for Plataberget (Glamsterdam testnet: L1 architecture, no sequencer)
+        if (
+            env != 1 && chainId != MAINNET_CHAIN_ID && chainId != HYPEREVM_CHAIN_ID && chainId != FLARE_CHAIN_ID
+                && chainId != ROBINHOOD_CHAIN_ID && chainId != BNB_CHAIN_ID && chainId != ARC_CHAIN_ID
+                && chainId != PLATABERGET_CHAIN_ID
+        ) {
             console2.log("[Step 6] Configuring L2 sequencer uptime feed...");
 
             SuperGovernor governor = SuperGovernor(peripheryContracts.superGovernor);
@@ -1047,7 +1145,10 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             }
 
             console2.log("[Step 6] DONE - Configured uptime feeds for ETH/USD, GAS/WEI, and UP/USD oracles");
-        } else if (chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID || chainId == ROBINHOOD_CHAIN_ID) {
+        } else if (
+            chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID || chainId == ROBINHOOD_CHAIN_ID
+                || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
+        ) {
             console2.log("[Step 6] SKIPPED - Chain has no sequencer uptime feed");
         }
 
@@ -1064,6 +1165,12 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 upToken = env == 2 ? UP_TOKEN_FLARE_STAGING : UP_TOKEN_FLARE;
             } else if (chainId == ROBINHOOD_CHAIN_ID) {
                 upToken = UP_TOKEN_RH;
+            } else if (chainId == BNB_CHAIN_ID) {
+                upToken = UP_TOKEN_BNB;
+            } else if (chainId == ARC_CHAIN_ID) {
+                upToken = UP_TOKEN_ARC;
+            } else if (chainId == PLATABERGET_CHAIN_ID) {
+                upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP
             } else {
                 revert("UP token not configured for this chain");
             }
@@ -1087,6 +1194,12 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 upkeepToken = env == 2 ? UPKEEP_TOKEN_FLARE_STAGING : UPKEEP_TOKEN_FLARE;
             } else if (chainId == ROBINHOOD_CHAIN_ID) {
                 upkeepToken = UPKEEP_TOKEN_RH;
+            } else if (chainId == BNB_CHAIN_ID) {
+                upkeepToken = UPKEEP_TOKEN_BNB;
+            } else if (chainId == ARC_CHAIN_ID) {
+                upkeepToken = UPKEEP_TOKEN_ARC;
+            } else if (chainId == PLATABERGET_CHAIN_ID) {
+                upkeepToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC as upkeep token
             } else {
                 revert("UPKEEP token not configured for this chain");
             }
@@ -1227,6 +1340,12 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             upToken = env == 2 ? UP_TOKEN_FLARE_STAGING : UP_TOKEN_FLARE;
         } else if (chainId == ROBINHOOD_CHAIN_ID) {
             upToken = UP_TOKEN_RH;
+        } else if (chainId == BNB_CHAIN_ID) {
+            upToken = UP_TOKEN_BNB;
+        } else if (chainId == ARC_CHAIN_ID) {
+            upToken = UP_TOKEN_ARC;
+        } else if (chainId == PLATABERGET_CHAIN_ID) {
+            upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP
         } else {
             revert("UP token not configured for this chain");
         }
@@ -1268,6 +1387,28 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             } catch {
                 console2.log("  Status: NOT INITIALIZED (keeper needs to set price)");
                 console2.log("  [WARNING] GAS oracle not ready - run keeper to initialize");
+            }
+
+            // On mainnet, also verify the BasefeeGasOracle registration under the SUPERFORM
+            // provider (additive migration off the deprecated Chainlink Fast Gas feed)
+            if (chainId == MAINNET_CHAIN_ID) {
+                try oracle.getOracleAddress(GAS_QUOTE, WEI_QUOTE, PROVIDER_SUPERFORM) returns (
+                    address superformGasFeed
+                ) {
+                    console2.log("  SUPERFORM provider gas feed:", superformGasFeed);
+                    if (ORACLE_BASEFEE_GAS_MAINNET != address(0)) {
+                        require(
+                            superformGasFeed == ORACLE_BASEFEE_GAS_MAINNET,
+                            "SMOKE_TEST_FAILED: SUPERFORM gas feed is not BasefeeGasOracle"
+                        );
+                        console2.log("  BasefeeGasOracle registration: VALID");
+                    }
+                } catch {
+                    if (ORACLE_BASEFEE_GAS_MAINNET != address(0)) {
+                        revert("SMOKE_TEST_FAILED: BasefeeGasOracle not registered under SUPERFORM provider");
+                    }
+                    console2.log("  SUPERFORM provider gas feed: NOT REGISTERED (migration pending)");
+                }
             }
         }
 

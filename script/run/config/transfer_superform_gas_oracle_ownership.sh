@@ -8,12 +8,13 @@
 #   SUPER_GOVERNOR_ADDRESS (0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e).
 #
 # Usage:
-#   ./transfer_superform_gas_oracle_ownership.sh <environment> <mode> [account]
+#   ./transfer_superform_gas_oracle_ownership.sh <environment> <mode> [account] [chain_id]
 #
 #   Parameters:
 #     environment: "prod" or "staging"
 #     mode: "simulate", "execute", or "check"
-#     account: Account name (required for execute mode, e.g., "v2-supervaults")
+#     account: Account name (required for execute mode, e.g., "v2-supervaults"; pass "" for check/simulate)
+#     chain_id: Chain ID (optional, default 8453 = Base; e.g. 56 for BNB Chain)
 #
 # Examples:
 #   # Check ownership status on Base staging
@@ -55,9 +56,8 @@ readonly CURRENT_OWNER="0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
 # New owner (SUPER_GOVERNOR_ADDRESS)
 readonly NEW_OWNER="0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e"
 
-# Base chain only
-readonly CHAIN_ID=8453
-readonly CHAIN_NAME="base"
+# Target chain (default Base); resolved against networks-{env}.sh at run time
+readonly CHAIN_ID="${4:-8453}"
 
 ###################################################################################
 # Helper Functions
@@ -187,10 +187,17 @@ main() {
     log "INFO" "Loading RPC URLs..."
     load_rpc_urls
 
-    # Get RPC URL for Base (use BASE_MAINNET directly after load_rpc_urls)
-    local rpc_url="${BASE_MAINNET:-}"
+    if ! is_network_supported "$CHAIN_ID"; then
+        log "ERROR" "Chain $CHAIN_ID is not in the $environment network configuration"
+        return 1
+    fi
+    local CHAIN_NAME
+    CHAIN_NAME=$(get_network_name "$CHAIN_ID")
+    # Get RPC URL for the target chain (loaded by load_rpc_urls)
+    local rpc_url
+    rpc_url=$(get_rpc_url "$CHAIN_ID")
     if [ -z "$rpc_url" ]; then
-        log "ERROR" "BASE_MAINNET RPC URL not loaded. Check 1Password configuration."
+        log "ERROR" "RPC URL for chain $CHAIN_ID not loaded. Check 1Password configuration."
         exit 1
     fi
 

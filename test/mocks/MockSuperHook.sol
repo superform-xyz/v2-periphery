@@ -7,6 +7,15 @@ import { ISuperHook } from "@superform-v2-core/src/interfaces/ISuperHook.sol";
 
 /// @notice Mock SuperHook implementation for testing
 contract MockSuperHook is BaseHook {
+    /// @dev Added for ISuperHook.name()/description() (v2-core dev); test mock only
+    function name() external pure returns (string memory) {
+        return "MockSuperHook";
+    }
+
+    function description() external pure returns (string memory) {
+        return "Test mock hook";
+    }
+
     // Events for testing
     event PreExecuteCalled(address prevHook, address sender, bytes data);
     event PostExecuteCalled(address prevHook, address sender, bytes data);
