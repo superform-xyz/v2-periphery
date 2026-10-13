@@ -19,16 +19,16 @@ import { ISuperVaultExecutor } from "../interfaces/SuperVault/ISuperVaultExecuto
 /// @title SuperVaultCounsel
 /// @author Superform Labs
 /// @notice Immutable, ownerless adapter occupying the SuperVault primary-manager/curator seat.
-///         Every sharp curator lever — yield-source additions, strategy hooks-root replacement,
-///         PPS deviation-threshold changes, global-leaf ban/unban, min-update-interval changes,
-///         secondary-manager additions, and Counsel migration offers — exists only behind a
-///         propose → guardian-veto-window → execute flow. Any address the VETO_REGISTRY reports
-///         as guardian (SuperGovernor guardians by default) can veto until execution, expiry or
-///         supersession; the hard guarantee is the Pending window — once Ready, execute-vs-veto
-///         is a mempool race. Single-slot actions carry a supersession epoch: only the LATEST
-///         proposal of such a type can ever execute, so a stale matured proposal can never roll
-///         back a newer value. Day-to-day operations are typed, operator-only
-///         forwards; there is no generic call path, no owner, no upgradeability.
+///         Every sharp curator lever — yield-source additions and removals, strategy hooks-root
+///         replacement, PPS deviation-threshold changes, global-leaf ban/unban, min-update-interval
+///         changes, secondary-manager additions, fee-config changes, and Counsel migration offers
+///         — exists only behind a propose → guardian-veto-window → execute flow. Any address the
+///         VETO_REGISTRY reports as guardian (SuperGovernor guardians by default) can veto until
+///         execution, expiry or supersession; the hard guarantee is the Pending window — once
+///         Ready, execute-vs-veto is a mempool race. Single-slot actions carry a supersession
+///         epoch: only the LATEST proposal of such a type can ever execute, so a stale matured
+///         proposal can never roll back a newer value. Day-to-day operations are typed,
+///         operator-only forwards; there is no generic call path, no owner, no upgradeability.
 /// @dev One instance per strategy; all counterparties and timing immutable from the constructor.
 ///      Replacement paths (two, both heavily guarded):
 ///        1. SuperGovernor.changePrimaryManager emergency takeover — instant, msig-only.
@@ -98,6 +98,17 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     /// @notice Immutable ceiling for proposeDeviationThreshold
     uint256 public immutable MAX_DEVIATION_THRESHOLD;
 
+    /// @notice Per-instance performance-fee ceiling for proposeVaultFeeConfigUpdate (bps)
+    /// @dev Immutable and at most STRATEGY_MAX_PERFORMANCE_FEE_BPS. A Counsel deployed with a
+    ///      lower cap can never propose a higher performance fee for its strategy; raising the
+    ///      cap requires a new Counsel and a guardian-reviewed migration.
+    uint256 public immutable MAX_PERFORMANCE_FEE_BPS;
+
+    /// @notice Per-instance management (asset-side ENTRY) fee ceiling for
+    ///         proposeVaultFeeConfigUpdate (bps)
+    /// @dev Immutable and at most STRATEGY_MAX_MANAGEMENT_FEE_BPS (100% of every deposit)
+    uint256 public immutable MAX_MANAGEMENT_FEE_BPS;
+
     /// @notice Proposals by monotonic id
     mapping(uint256 id => Proposal proposal) private _proposals;
 
@@ -116,11 +127,12 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     ///      re-proposed through a fresh veto window.
     mapping(ActionType actionType => uint256 latestIdPlusOne) private _latestByType;
 
-    /// @notice Strategy's performance-fee cap, mirrored for propose-time validation
-    uint256 private constant MAX_PERFORMANCE_FEE_BPS = 5100;
+    /// @notice The strategy's own performance-fee cap; the per-instance cap may not exceed it
+    uint256 public constant STRATEGY_MAX_PERFORMANCE_FEE_BPS = 5100;
 
-    /// @notice Strategy's management (asset-side entry) fee cap, mirrored for propose-time validation
-    uint256 private constant MAX_MANAGEMENT_FEE_BPS = 10_000;
+    /// @notice The strategy's own management (asset-side entry) fee cap; the per-instance cap
+    ///         may not exceed it
+    uint256 public constant STRATEGY_MAX_MANAGEMENT_FEE_BPS = 10_000;
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIERS
@@ -153,6 +165,10 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     /// @param minDeviationThreshold_ Floor for deviation-threshold proposals; must be non-zero
     /// @param maxDeviationThreshold_ Ceiling for deviation-threshold proposals; must be >= floor
     ///        and < type(uint256).max (max uint disables the aggregator's PPS deviation check)
+    /// @param maxPerformanceFeeBps_ Per-instance performance-fee ceiling (bps); must be <=
+    ///        STRATEGY_MAX_PERFORMANCE_FEE_BPS (zero permits no performance fee at all)
+    /// @param maxManagementFeeBps_ Per-instance management (entry) fee ceiling (bps); must be <=
+    ///        STRATEGY_MAX_MANAGEMENT_FEE_BPS (zero permits no entry fee at all)
     constructor(
         address operator_,
         address superGovernor_,
@@ -163,7 +179,9 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
         uint256 vetoWindow_,
         uint256 expiry_,
         uint256 minDeviationThreshold_,
-        uint256 maxDeviationThreshold_
+        uint256 maxDeviationThreshold_,
+        uint256 maxPerformanceFeeBps_,
+        uint256 maxManagementFeeBps_
     ) {
         if (
             operator_ == address(0) || superGovernor_ == address(0) || aggregator_ == address(0)
@@ -172,6 +190,8 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
         if (
             vetoWindow_ == 0 || expiry_ <= vetoWindow_ || minDeviationThreshold_ == 0
                 || maxDeviationThreshold_ < minDeviationThreshold_ || maxDeviationThreshold_ == type(uint256).max
+                || maxPerformanceFeeBps_ > STRATEGY_MAX_PERFORMANCE_FEE_BPS
+                || maxManagementFeeBps_ > STRATEGY_MAX_MANAGEMENT_FEE_BPS
         ) revert INVALID_CONFIG();
 
         OPERATOR = operator_;
@@ -198,6 +218,8 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
         EXPIRY = expiry_;
         MIN_DEVIATION_THRESHOLD = minDeviationThreshold_;
         MAX_DEVIATION_THRESHOLD = maxDeviationThreshold_;
+        MAX_PERFORMANCE_FEE_BPS = maxPerformanceFeeBps_;
+        MAX_MANAGEMENT_FEE_BPS = maxManagementFeeBps_;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -211,6 +233,15 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
         p.actionType = ActionType.YieldSourceAdd;
         p.source = source;
         p.oracle = oracle;
+        id = _storeProposal(p);
+    }
+
+    /// @inheritdoc ISuperVaultCounsel
+    function proposeYieldSourceRemove(address source) external onlyOperator returns (uint256 id) {
+        if (source == address(0)) revert ZERO_ADDRESS();
+        Proposal memory p;
+        p.actionType = ActionType.YieldSourceRemove;
+        p.source = source;
         id = _storeProposal(p);
     }
 
@@ -330,6 +361,12 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
 
         if (p.actionType == ActionType.YieldSourceAdd) {
             STRATEGY.manageYieldSource(p.source, p.oracle, ISuperVaultStrategy.YieldSourceAction.Add);
+        } else if (p.actionType == ActionType.YieldSourceRemove) {
+            // Registry deletion only: the strategy performs no occupancy check and moves no funds.
+            // Assets already in `source` stay reachable via executeHooks (hook validation is
+            // Merkle-based), but the venue leaves the PPS valuation set, so a removal while it
+            // holds assets can deviate PPS and auto-pause. Guardians must check occupancy first.
+            STRATEGY.manageYieldSource(p.source, address(0), ISuperVaultStrategy.YieldSourceAction.Remove);
         } else if (p.actionType == ActionType.StrategyRoot) {
             // Starts the aggregator's own (shorter) timelock; its execute is permissionless.
             // The Counsel window above is the real defense.
@@ -403,12 +440,6 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     }
 
     /// @inheritdoc ISuperVaultCounsel
-    function removeYieldSource(address source) external onlyOperator {
-        emit OperatorActionExecuted(this.removeYieldSource.selector);
-        STRATEGY.manageYieldSource(source, address(0), ISuperVaultStrategy.YieldSourceAction.Remove);
-    }
-
-    /// @inheritdoc ISuperVaultCounsel
     function proposeVaultFeeConfigUpdate(
         uint256 performanceFeeBps,
         uint256 managementFeeBps,
@@ -418,10 +449,11 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
         onlyOperator
         returns (uint256 id)
     {
-        // Bounds mirror the strategy's own caps so an invalid config fails at propose time,
-        // where the guardian reviews it. The management fee is an ASSET-SIDE ENTRY FEE: up to
-        // 100% of every deposit to an arbitrary recipient - which is exactly why this lever is
-        // veto-gated rather than an immediate forward.
+        // Bounds are the per-instance immutable caps (never above the strategy's own), so an
+        // over-cap config fails at propose time, where the guardian reviews it. The management
+        // fee is an ASSET-SIDE ENTRY FEE: up to the cap of every deposit to an arbitrary
+        // recipient - which is exactly why this lever is veto-gated rather than an immediate
+        // forward.
         if (
             performanceFeeBps > MAX_PERFORMANCE_FEE_BPS || managementFeeBps > MAX_MANAGEMENT_FEE_BPS
                 || recipient == address(0)
@@ -653,9 +685,9 @@ contract SuperVaultCounsel is ISuperVaultCounsel, ReentrancyGuard {
     ///      and an older pending proposal must not be able to overwrite a newer one. Global leaves
     ///      status is included because every leaf is its own ban/unban slot — two pending batches
     ///      touching the same leaf would otherwise re-open the rollback class (batch all desired
-    ///      leaf changes into one proposal). Set-membership additions (yield source add, secondary
-    ///      manager add) are order-independent and idempotent-revert at the target, so they are
-    ///      not superseded.
+    ///      leaf changes into one proposal). Set-membership changes (yield source add and remove,
+    ///      secondary manager add) are order-independent and idempotent-revert at the target, so
+    ///      they are not superseded.
     function _isSingleSlot(ActionType actionType) internal pure returns (bool) {
         return actionType == ActionType.StrategyRoot || actionType == ActionType.DeviationThreshold
             || actionType == ActionType.MinUpdateInterval || actionType == ActionType.FeeConfig

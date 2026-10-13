@@ -46,6 +46,16 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     /// @notice Proposal expiry from proposedAt (spec-pinned); executable in [VETO_WINDOW, EXPIRY)
     uint256 internal constant EXPIRY = 7 days;
 
+    /// @notice Path (relative to the project root) of the curated fleet configuration
+    string internal constant FLEET_CONFIG_PATH = "/script/utils/counsel-fleet.json";
+
+    /// @notice Strategy ceilings the per-instance fee caps may not exceed. Mirrors
+    ///         SuperVaultCounsel.STRATEGY_MAX_*_FEE_BPS (solc cannot read a public constant through
+    ///         the contract type, and no instance exists before deployment); _verifyDeployment
+    ///         asserts the mirror against the deployed Counsel so drift fails the simulation.
+    uint256 internal constant STRATEGY_MAX_PERFORMANCE_FEE_BPS = 5100;
+    uint256 internal constant STRATEGY_MAX_MANAGEMENT_FEE_BPS = 10_000;
+
     /*//////////////////////////////////////////////////////////////
                             MAIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -60,6 +70,10 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     ///        SuperGovernor. For EOA guardians use the fleet config's vetoGuardians (runOne/runAll)
     /// @param minDeviationThreshold Immutable floor for proposeDeviationThreshold
     /// @param maxDeviationThreshold Immutable ceiling for proposeDeviationThreshold
+    /// @param maxPerformanceFeeBps Immutable per-instance performance-fee cap (bps, <= 5100)
+    /// @param maxManagementFeeBps Immutable per-instance management (entry) fee cap (bps, <= 10_000).
+    ///        A ZERO cap in prod requires the fleet config's per-entry `allowZeroFeeCap` opt-in, so
+    ///        use runOne/runAll for that case; this ad-hoc path rejects it (ZERO_FEE_CAP_REQUIRES_OPT_IN)
     function run(
         uint256 env,
         uint64 chainId,
@@ -68,7 +82,9 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         address strategy,
         address vetoRegistry,
         uint256 minDeviationThreshold,
-        uint256 maxDeviationThreshold
+        uint256 maxDeviationThreshold,
+        uint256 maxPerformanceFeeBps,
+        uint256 maxManagementFeeBps
     )
         external
         broadcast(env)
@@ -83,6 +99,8 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         p.vetoRegistry = vetoRegistry;
         p.minDev = minDeviationThreshold;
         p.maxDev = maxDeviationThreshold;
+        p.maxPerfFeeBps = maxPerformanceFeeBps;
+        p.maxMgmtFeeBps = maxManagementFeeBps;
         _deploy(p, branchName);
     }
 
@@ -131,6 +149,9 @@ contract DeploySuperVaultCounsel is DeployV2Base {
             p.vetoGuardians = entries[i].vetoGuardians;
             p.minDev = entries[i].minDev;
             p.maxDev = entries[i].maxDev;
+            p.maxPerfFeeBps = entries[i].maxPerfFeeBps;
+            p.maxMgmtFeeBps = entries[i].maxMgmtFeeBps;
+            p.allowZeroFeeCap = entries[i].allowZeroFeeCap;
             console2.log("    operator:", p.operator);
             _logVetoConfig(p);
             if (_isCounselDeployed(p, branchName)) {
@@ -166,6 +187,9 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         p.vetoGuardians = e.vetoGuardians;
         p.minDev = e.minDev;
         p.maxDev = e.maxDev;
+        p.maxPerfFeeBps = e.maxPerfFeeBps;
+        p.maxMgmtFeeBps = e.maxMgmtFeeBps;
+        p.allowZeroFeeCap = e.allowZeroFeeCap;
         console2.log("Operator (from counsel-fleet.json):", p.operator);
         _logVetoConfig(p);
         _deploy(p, branchName);
@@ -189,6 +213,9 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         p.vetoGuardians = e.vetoGuardians;
         p.minDev = e.minDev;
         p.maxDev = e.maxDev;
+        p.maxPerfFeeBps = e.maxPerfFeeBps;
+        p.maxMgmtFeeBps = e.maxMgmtFeeBps;
+        p.allowZeroFeeCap = e.allowZeroFeeCap;
         _check(p, branchName);
     }
 
@@ -200,6 +227,8 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     /// @param strategy The strategy the Counsel manages
     /// @param minDeviationThreshold Floor used at deployment
     /// @param maxDeviationThreshold Ceiling used at deployment
+    /// @param maxPerformanceFeeBps Performance-fee cap used at deployment
+    /// @param maxManagementFeeBps Management (entry) fee cap used at deployment
     function runCheck(
         uint256 env,
         uint64 chainId,
@@ -207,7 +236,9 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         address operator,
         address strategy,
         uint256 minDeviationThreshold,
-        uint256 maxDeviationThreshold
+        uint256 maxDeviationThreshold,
+        uint256 maxPerformanceFeeBps,
+        uint256 maxManagementFeeBps
     )
         external
     {
@@ -221,6 +252,8 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         p.strategy = strategy;
         p.minDev = minDeviationThreshold;
         p.maxDev = maxDeviationThreshold;
+        p.maxPerfFeeBps = maxPerformanceFeeBps;
+        p.maxMgmtFeeBps = maxManagementFeeBps;
         _check(p, branchName);
     }
 
@@ -274,6 +307,8 @@ contract DeploySuperVaultCounsel is DeployV2Base {
             console2.log("EXPIRY:", counsel.EXPIRY());
             console2.log("MIN_DEVIATION_THRESHOLD:", counsel.MIN_DEVIATION_THRESHOLD());
             console2.log("MAX_DEVIATION_THRESHOLD:", counsel.MAX_DEVIATION_THRESHOLD());
+            console2.log("MAX_PERFORMANCE_FEE_BPS:", counsel.MAX_PERFORMANCE_FEE_BPS());
+            console2.log("MAX_MANAGEMENT_FEE_BPS:", counsel.MAX_MANAGEMENT_FEE_BPS());
             console2.log("Proposals created:", counsel.nextProposalId());
 
             console2.log("");
@@ -331,6 +366,9 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         address strategy;
         uint256 minDev;
         uint256 maxDev;
+        uint256 maxPerfFeeBps; // immutable per-instance performance-fee cap (<= strategy's 5100)
+        uint256 maxMgmtFeeBps; // immutable per-instance management (entry) fee cap (<= strategy's 10_000)
+        bool allowZeroFeeCap; // explicit opt-in for a ZERO fee cap in prod (fleet entry field)
         address superGovernor;
         address aggregator;
         address executor;
@@ -404,15 +442,56 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         console2.log("Veto window:", VETO_WINDOW);
         console2.log("Expiry:", EXPIRY);
         console2.log("Deviation bounds:", p.minDev, p.maxDev);
+        console2.log("Fee caps (perf, mgmt bps):", p.maxPerfFeeBps, p.maxMgmtFeeBps);
         console2.log("");
     }
 
     /// @notice Validate inputs (mirrors the constructor's own checks so simulation fails early)
+    /// @dev The fee-cap checks duplicate the constructor's INVALID_CONFIG on purpose: they give a
+    ///      readable reason before the CREATE2 simulation.
     function _validateParams(DeployParams memory p) internal view {
         require(p.operator != address(0), "INVALID_OPERATOR");
         require(p.strategy != address(0), "INVALID_STRATEGY");
         require(p.strategy.code.length > 0, "STRATEGY_NOT_DEPLOYED");
         require(p.minDev > 0 && p.maxDev >= p.minDev && p.maxDev < type(uint256).max, "INVALID_DEVIATION_BOUNDS");
+        require(p.maxPerfFeeBps <= STRATEGY_MAX_PERFORMANCE_FEE_BPS, "PERF_FEE_CAP_ABOVE_STRATEGY_CEILING");
+        require(p.maxMgmtFeeBps <= STRATEGY_MAX_MANAGEMENT_FEE_BPS, "MGMT_FEE_CAP_ABOVE_STRATEGY_CEILING");
+        _warnFeeCapFootguns(p);
+    }
+
+    /// @notice Fee caps are IMMUTABLE per Counsel (changing one means a new Counsel plus a
+    ///         guardian-reviewed migration), so surface the two easy-to-miss shapes loudly:
+    ///         a ZERO cap (the Counsel can never propose that fee) and, in prod, a cap that
+    ///         merely mirrors the strategy ceiling (no tightening - "not yet chosen" baked in).
+    ///         A prod zero cap additionally needs the per-entry `allowZeroFeeCap` opt-in.
+    function _warnFeeCapFootguns(DeployParams memory p) internal pure {
+        bool zeroCap = p.maxPerfFeeBps == 0 || p.maxMgmtFeeBps == 0;
+        if (p.maxPerfFeeBps == 0) {
+            console2.log("[WARNING] maxPerformanceFeeBps == 0: this Counsel can NEVER propose a performance fee");
+        }
+        if (p.maxMgmtFeeBps == 0) {
+            console2.log("[WARNING] maxManagementFeeBps == 0: this Counsel can NEVER propose a management (entry) fee");
+        }
+        if (zeroCap) {
+            console2.log(
+                "[WARNING] fee caps are IMMUTABLE per Counsel - raising one later needs a new Counsel + migration"
+            );
+        }
+        if (p.env == 0) {
+            require(!zeroCap || p.allowZeroFeeCap, "ZERO_FEE_CAP_REQUIRES_OPT_IN");
+            if (p.maxPerfFeeBps == STRATEGY_MAX_PERFORMANCE_FEE_BPS) {
+                console2.log(
+                    "[WARNING] prod maxPerformanceFeeBps equals the strategy ceiling (no tightening); it is IMMUTABLE per Counsel:",
+                    p.maxPerfFeeBps
+                );
+            }
+            if (p.maxMgmtFeeBps == STRATEGY_MAX_MANAGEMENT_FEE_BPS) {
+                console2.log(
+                    "[WARNING] prod maxManagementFeeBps equals the strategy ceiling (no tightening); it is IMMUTABLE per Counsel:",
+                    p.maxMgmtFeeBps
+                );
+            }
+        }
     }
 
     /// @notice Get bytecode from environment-specific artifacts
@@ -504,7 +583,9 @@ contract DeploySuperVaultCounsel is DeployV2Base {
             VETO_WINDOW,
             EXPIRY,
             p.minDev,
-            p.maxDev
+            p.maxDev,
+            p.maxPerfFeeBps,
+            p.maxMgmtFeeBps
         );
     }
 
@@ -524,6 +605,14 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         require(counsel.EXPIRY() == EXPIRY, "EXPIRY_MISMATCH");
         require(counsel.MIN_DEVIATION_THRESHOLD() == p.minDev, "MIN_DEV_MISMATCH");
         require(counsel.MAX_DEVIATION_THRESHOLD() == p.maxDev, "MAX_DEV_MISMATCH");
+        require(counsel.MAX_PERFORMANCE_FEE_BPS() == p.maxPerfFeeBps, "MAX_PERF_FEE_MISMATCH");
+        require(counsel.MAX_MANAGEMENT_FEE_BPS() == p.maxMgmtFeeBps, "MAX_MGMT_FEE_MISMATCH");
+        // The script's mirrored ceilings must match the Counsel's own (single source: the contract)
+        require(
+            counsel.STRATEGY_MAX_PERFORMANCE_FEE_BPS() == STRATEGY_MAX_PERFORMANCE_FEE_BPS
+                && counsel.STRATEGY_MAX_MANAGEMENT_FEE_BPS() == STRATEGY_MAX_MANAGEMENT_FEE_BPS,
+            "STRATEGY_CEILING_MIRROR_DRIFT"
+        );
     }
 
     /// @notice Merge the Counsel address into {ChainName}-latest.json under a per-strategy key
@@ -610,34 +699,53 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         address[] vetoGuardians;
         uint256 minDev;
         uint256 maxDev;
+        uint256 maxPerfFeeBps;
+        uint256 maxMgmtFeeBps;
+        bool allowZeroFeeCap; // per-entry only (never inherited from defaults)
     }
 
-    /// @notice Read the environment defaults from counsel-fleet.json
-    function _readFleetDefaults(
-        string memory json,
-        string memory envKey
-    )
-        internal
-        view
-        returns (
-            address dOperator,
-            address dVetoRegistry,
-            address[] memory dVetoGuardians,
-            uint256 dMinDev,
-            uint256 dMaxDev
-        )
-    {
-        string memory d = string(abi.encodePacked(envKey, ".defaults"));
-        dOperator = vm.parseJsonAddress(json, string(abi.encodePacked(d, ".operator")));
-        dVetoRegistry = vm.parseJsonAddress(json, string(abi.encodePacked(d, ".vetoRegistry")));
-        string memory gk = string(abi.encodePacked(d, ".vetoGuardians"));
-        dVetoGuardians = vm.keyExistsJson(json, gk) ? vm.parseJsonAddressArray(json, gk) : new address[](0);
+    /// @notice Raw counsel-fleet.json contents; overridable so tests can supply a fixture
+    function _fleetConfigJson() internal view virtual returns (string memory) {
+        return vm.readFile(string(abi.encodePacked(vm.projectRoot(), FLEET_CONFIG_PATH)));
+    }
+
+    /// @notice Allocate a NEW FleetEntry carrying `d`'s defaults for `strategy`. A memory-to-memory
+    ///         struct assignment only copies the reference, so building per-strategy entries from a
+    ///         shared defaults struct MUST go through this (todo 001: every registry-fallback entry
+    ///         ended up aliased to the last strategy).
+    function _entryFromDefaults(FleetEntry memory d, address strategy) internal pure returns (FleetEntry memory) {
+        address[] memory guardians = new address[](d.vetoGuardians.length);
+        for (uint256 i = 0; i < guardians.length; i++) {
+            guardians[i] = d.vetoGuardians[i];
+        }
+        return FleetEntry({
+            strategy: strategy,
+            operator: d.operator,
+            vetoRegistry: d.vetoRegistry,
+            vetoGuardians: guardians,
+            minDev: d.minDev,
+            maxDev: d.maxDev,
+            maxPerfFeeBps: d.maxPerfFeeBps,
+            maxMgmtFeeBps: d.maxMgmtFeeBps,
+            allowZeroFeeCap: false
+        });
+    }
+
+    /// @notice Environment defaults from counsel-fleet.json (strategy field unused)
+    function _readFleetDefaults(string memory json, string memory envKey) internal view returns (FleetEntry memory d) {
+        string memory k = string(abi.encodePacked(envKey, ".defaults"));
+        d.operator = vm.parseJsonAddress(json, string(abi.encodePacked(k, ".operator")));
+        d.vetoRegistry = vm.parseJsonAddress(json, string(abi.encodePacked(k, ".vetoRegistry")));
+        string memory gk = string(abi.encodePacked(k, ".vetoGuardians"));
+        d.vetoGuardians = vm.keyExistsJson(json, gk) ? vm.parseJsonAddressArray(json, gk) : new address[](0);
         require(
-            !(dVetoGuardians.length > 0 && dVetoRegistry != address(0)),
+            !(d.vetoGuardians.length > 0 && d.vetoRegistry != address(0)),
             "AMBIGUOUS_DEFAULT_VETO_CONFIG_SET_GUARDIANS_OR_REGISTRY_NOT_BOTH"
         );
-        dMinDev = vm.parseJsonUint(json, string(abi.encodePacked(d, ".minDeviationThreshold")));
-        dMaxDev = vm.parseJsonUint(json, string(abi.encodePacked(d, ".maxDeviationThreshold")));
+        d.minDev = vm.parseJsonUint(json, string(abi.encodePacked(k, ".minDeviationThreshold")));
+        d.maxDev = vm.parseJsonUint(json, string(abi.encodePacked(k, ".maxDeviationThreshold")));
+        d.maxPerfFeeBps = vm.parseJsonUint(json, string(abi.encodePacked(k, ".maxPerformanceFeeBps")));
+        d.maxMgmtFeeBps = vm.parseJsonUint(json, string(abi.encodePacked(k, ".maxManagementFeeBps")));
     }
 
     /// @notice Resolve an operator: zero means "not set" - allowed with a placeholder in
@@ -655,13 +763,13 @@ contract DeploySuperVaultCounsel is DeployV2Base {
     }
 
     /// @notice Read the per-strategy fleet entries for env+chain, applying defaults for any
-    ///         field an entry omits (operator / vetoRegistry / min-/maxDeviationThreshold)
+    ///         field an entry omits (operator / vetoRegistry / min-/maxDeviationThreshold /
+    ///         maxPerformanceFeeBps / maxManagementFeeBps); `allowZeroFeeCap` is per-entry only
     function _readFleetEntries(uint256 env, uint64 chainId) internal view returns (FleetEntry[] memory entries) {
-        string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
+        string memory json = _fleetConfigJson();
         // env 0 = prod; everything else (staging/vnet) uses the staging fleet section
         string memory envKey = env == 0 ? ".prod" : ".staging";
-        (address dOperator, address dVetoRegistry, address[] memory dVetoGuardians, uint256 dMinDev, uint256 dMaxDev) =
-            _readFleetDefaults(json, envKey);
+        FleetEntry memory d = _readFleetDefaults(json, envKey);
 
         string memory base = string(abi.encodePacked(envKey, ".strategies.", vm.toString(uint256(chainId))));
         require(vm.keyExistsJson(json, base), "CHAIN_NOT_IN_COUNSEL_FLEET_JSON");
@@ -675,12 +783,30 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         for (uint256 i = 0; i < n; i++) {
             string memory e = string(abi.encodePacked(base, "[", vm.toString(i), "]"));
             entries[i].strategy = vm.parseJsonAddress(json, string(abi.encodePacked(e, ".strategy")));
-            entries[i].operator = _entryAddr(json, e, ".operator", dOperator);
+            entries[i].operator = _entryAddr(json, e, ".operator", d.operator);
             (entries[i].vetoRegistry, entries[i].vetoGuardians) =
-                _entryVetoConfig(json, e, dVetoRegistry, dVetoGuardians);
-            entries[i].minDev = _entryUint(json, e, ".minDeviationThreshold", dMinDev);
-            entries[i].maxDev = _entryUint(json, e, ".maxDeviationThreshold", dMaxDev);
+                _entryVetoConfig(json, e, d.vetoRegistry, d.vetoGuardians);
+            entries[i].minDev = _entryUint(json, e, ".minDeviationThreshold", d.minDev);
+            entries[i].maxDev = _entryUint(json, e, ".maxDeviationThreshold", d.maxDev);
+            entries[i].maxPerfFeeBps = _entryUint(json, e, ".maxPerformanceFeeBps", d.maxPerfFeeBps);
+            entries[i].maxMgmtFeeBps = _entryUint(json, e, ".maxManagementFeeBps", d.maxMgmtFeeBps);
+            entries[i].allowZeroFeeCap = _entryBool(json, e, ".allowZeroFeeCap", false);
         }
+    }
+
+    /// @notice Entry-level bool flag; a present value wins over the default
+    function _entryBool(
+        string memory json,
+        string memory entryPath,
+        string memory field,
+        bool dflt
+    )
+        internal
+        view
+        returns (bool)
+    {
+        string memory k = string(abi.encodePacked(entryPath, field));
+        return vm.keyExistsJson(json, k) ? vm.parseJsonBool(json, k) : dflt;
     }
 
     /// @notice Entry-level address override; a present, non-zero value wins over the default
@@ -748,14 +874,10 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         view
         returns (FleetEntry[] memory entries)
     {
-        string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
-        (address dOp, address dVr, address[] memory dVg, uint256 dMin, uint256 dMax) =
-            _readFleetDefaults(json, env == 0 ? ".prod" : ".staging");
+        FleetEntry memory d = _readFleetDefaults(_fleetConfigJson(), env == 0 ? ".prod" : ".staging");
         entries = new FleetEntry[](registry.length);
         for (uint256 i = 0; i < registry.length; i++) {
-            entries[i] = FleetEntry({
-                strategy: registry[i], operator: dOp, vetoRegistry: dVr, vetoGuardians: dVg, minDev: dMin, maxDev: dMax
-            });
+            entries[i] = _entryFromDefaults(d, registry[i]);
         }
     }
 
@@ -767,10 +889,7 @@ contract DeploySuperVaultCounsel is DeployV2Base {
             if (entries[i].strategy == strategy) return entries[i];
         }
         console2.log("Strategy not in counsel-fleet.json - using environment defaults");
-        string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
-        (e.operator, e.vetoRegistry, e.vetoGuardians, e.minDev, e.maxDev) =
-            _readFleetDefaults(json, env == 0 ? ".prod" : ".staging");
-        e.strategy = strategy;
+        e = _entryFromDefaults(_readFleetDefaults(_fleetConfigJson(), env == 0 ? ".prod" : ".staging"), strategy);
     }
 
     /// @notice Whether a strategy is present in the aggregator's registry

@@ -11,7 +11,7 @@
 
 `SuperVaultCounsel` is an immutable, ownerless adapter that takes the SuperVault primary
 manager/curator seat on `SuperVaultAggregator`, replacing the SuperGovernor msig in that role.
-Every sharp curator lever — eight veto-gated action types: yield-source additions, strategy
+Every sharp curator lever — nine veto-gated action types: yield-source additions and removals, strategy
 hooks-root replacement (bound to a published leaf-manifest hash), PPS deviation-threshold changes,
 Counsel migration offers, global-leaf ban/unban, min-update-interval changes (two-leg via the
 aggregator's own timelock), secondary-manager additions, and vault fee-config updates (two-leg
@@ -39,21 +39,22 @@ replacement bypass).
 ## Requirements
 
 ### Functional
-1. Veto-gated flows (eight): `proposeYieldSourceAdd(source, oracle)`, `proposeStrategyRoot(root,
+1. Veto-gated flows (nine): `proposeYieldSourceAdd(source, oracle)`, `proposeYieldSourceRemove(source)`
+   (Remove hard-coded; venue removal is a material change), `proposeStrategyRoot(root,
    manifestHash)`, `proposeDeviationThreshold(newThreshold)`, `proposeCounselMigration(newCounsel)`
    (validates successor STRATEGY + AGGREGATOR wiring at propose time),
    `proposeGlobalLeavesStatus(leaves, statuses)`, `proposeMinUpdateInterval(interval)` (two-leg:
    execute starts the aggregator's own parameter timelock), `proposeSecondaryManagerAdd(manager)`,
    `proposeVaultFeeConfigUpdate(perfBps, mgmtBps, recipient)` (two-leg: execute starts the
-   strategy's own 1-week fee timelock; bounds perf <=5100 bps / mgmt <=10_000 bps / non-zero
-   recipient mirrored at propose time)
+   strategy's own 1-week fee timelock; bounds are the per-instance IMMUTABLE caps
+   `MAX_PERFORMANCE_FEE_BPS` / `MAX_MANAGEMENT_FEE_BPS`, constructor-set and at most the
+   strategy's own 5100 / 10_000 bps, plus a non-zero recipient - the regulatory fee-cap lever)
    → `veto(id)` (any live guardian, until execution / expiry / supersession, terminal) / `execute(id)` (operator-only,
    exact stored args, half-open window) / derived expiry. Plus `acceptCounselSeat(feeRecipient)`:
    the successor-side claim of a migration offer (operator-only; aggregator's secondary-only gate
    makes it structurally self-targeted).
 2. Day-to-day operator forwards: `executeHooks` (payable, exact `msg.value` relay), redemption and
-   cancellation fulfillment, `skimPerformanceFee`, `removeYieldSource` (Remove hard-coded),
-    `managePPSExpiration`,
+   cancellation fulfillment, `skimPerformanceFee`, `managePPSExpiration`,
    pause/unpause, withdraw-upkeep, `removeSecondaryManager`, `cancelChangePrimaryManager`,
    `enrollExecutor()` (hard-coded executor address), session-key grant/revoke/batch,
    `executeMinUpdateIntervalChange`/`cancelMinUpdateIntervalChange` and
@@ -98,9 +99,10 @@ successor's `acceptCounselSeat()` + the aggregator's 7-day manager-change timelo
 `struct Proposal { uint64 proposedAt; ProposalStatus status; ActionType actionType; address source;
 address oracle; bytes32 root; bytes32 manifestHash; uint256 newThreshold; address newCounsel;
 bytes32[] leaves; bool[] statuses; uint256 newMinUpdateInterval; address newSecondaryManager; }`
-keyed by a `uint256` monotonic nonce; `ActionType` has eight members (YieldSourceAdd, StrategyRoot,
+keyed by a `uint256` monotonic nonce; `ActionType` has nine members (YieldSourceAdd, StrategyRoot,
 DeviationThreshold, CounselMigration, GlobalLeavesStatus, MinUpdateInterval, SecondaryManagerAdd,
-FeeConfig — the last carrying performanceFeeBps/managementFeeBps/feeRecipient fields).
+FeeConfig — carrying performanceFeeBps/managementFeeBps/feeRecipient fields — and YieldSourceRemove,
+appended last as ordinal 8).
 Full args stored (Governor Bravo/MetaMorpho precedent) so `execute(id)` cannot mutate them.
 
 ### API Changes
@@ -165,6 +167,7 @@ executor — the Counsel is enrolled purely as aggregator `mainManager` data.
 | Executor-enrollment gap | Add hard-coded enrollExecutor() | cosmin, 2026-08-19 |
 | Instance scope | One Counsel per strategy | cosmin, 2026-08-19 |
 | Deviation bounds / manifest binding / fee exclusion / spam cap / freeze policy / orphaned proposals / id type | Documented defaults in interview-notes.md — pod leader confirms at approval | pending sign-off |
+| Regulatory fee cap (`MAX_PERFORMANCE_FEE_BPS` / `MAX_MANAGEMENT_FEE_BPS`, immutable per Counsel) | Owner: TBD (named signer who decides the per-strategy value). Value source: per-strategy entry in `counsel-fleet.json`, each backed by a recorded regulatory/legal basis. Rule: a prod Counsel must not be broadcast with a cap equal to the strategy ceiling (5100 / 10_000) or zero without an explicit decision — the deploy script warns on ceiling-equal prod caps and requires an `allowZeroFeeCap` entry flag for zero. Changing a cap means a new Counsel + guardian-reviewed migration. Fleet defaults set 2026-10-13: 3500 bps performance (35% absolute cap, vaults expected at 5–20%) and 200 bps management entry fee (all live prod strategies run 10–20% / 0 today). | defaults chosen (cosmin, 2026-10-13) — owner still to be named |
 
 ## Interview Notes
 See: [interview-notes.md](./interview-notes.md)

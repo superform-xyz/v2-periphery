@@ -48,6 +48,12 @@ design gap (per-leaf rollback class) were found and fixed; the rest were documen
   forward, execute the tolerated duplicate → S re-added without a fresh window (within 7 days).
   Requires guardians to tolerate a visibly duplicate pending Add. Monitoring rule: duplicate pending
   Add of the same source ⇒ veto. Optional future hardening: key supersession by `keccak(type, payload)`.
+  *Update 2026-10-12:* removal is no longer an immediate forward; it is the veto-gated
+  `proposeYieldSourceRemove` (ActionType 8) with its own `VETO_WINDOW = 3 days` / `EXPIRY = 7 days`.
+  The stale re-add now needs the Remove to clear its own 3-day window while the duplicate Add is still
+  unexpired: with the Add proposed at t0 (live until t0+7d) and the Remove executable from
+  tRemove+3d, the Remove must be proposed before t0+4d. Narrower, and the Remove is itself a paged
+  proposal, but the monitoring rule stands: duplicate pending Add of the same source ⇒ veto.
 - **R3 — Attention, not window.** Superseding gives the new proposal its own full 3-day window; the
   residual is that guardians who cleared proposal A must re-review B. Page on `ProposalSuperseded`.
 - **R4 — Already-deployed Counsels** (e.g. RH `TestNVDA` `0x7b0D…`) are immutable and keep the old

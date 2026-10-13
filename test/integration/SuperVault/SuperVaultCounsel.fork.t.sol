@@ -35,6 +35,8 @@ contract SuperVaultCounselForkTest is Test {
     uint256 constant EXPIRY = 7 days;
     uint256 constant MIN_DEV = 1e15; // 0.1%
     uint256 constant MAX_DEV = 99e16; // 99%
+    uint256 constant MAX_PERF_CAP = 5100;
+    uint256 constant MAX_MGMT_CAP = 10_000;
 
     /*//////////////////////////////////////////////////////////////
                             TEST STATE
@@ -84,7 +86,9 @@ contract SuperVaultCounselForkTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
 
         vm.deal(operator, 100 ether);
@@ -223,7 +227,7 @@ contract SuperVaultCounselForkTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                VETO-GATED: YIELD SOURCE REMOVE → RE-ADD
+                VETO-GATED: YIELD SOURCE REMOVE → RE-ADD (both windows)
     //////////////////////////////////////////////////////////////*/
 
     function test_Fork_YieldSource_RemoveThenReAdd_EndToEnd() public {
@@ -236,9 +240,13 @@ contract SuperVaultCounselForkTest is Test {
         address oracle = sources[0].oracle;
         uint256 countBefore = strategy.getYieldSourcesCount();
 
-        // immediate removal (Remove enum hard-coded in the adapter)
+        // removal is veto-gated too (Remove enum hard-coded in the adapter)
         vm.prank(operator);
-        counsel.removeYieldSource(source);
+        uint256 removeId = counsel.proposeYieldSourceRemove(source);
+        assertEq(strategy.getYieldSourcesCount(), countBefore); // nothing happens before the window
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.prank(operator);
+        counsel.execute(removeId);
         assertEq(strategy.getYieldSourcesCount(), countBefore - 1);
 
         // re-add only via the full propose → window → execute flow
@@ -259,7 +267,10 @@ contract SuperVaultCounselForkTest is Test {
         address oracle = sources[0].oracle;
 
         vm.prank(operator);
-        counsel.removeYieldSource(source);
+        uint256 removeId = counsel.proposeYieldSourceRemove(source);
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.prank(operator);
+        counsel.execute(removeId);
 
         vm.prank(operator);
         uint256 id = counsel.proposeYieldSourceAdd(source, oracle);
@@ -271,6 +282,142 @@ contract SuperVaultCounselForkTest is Test {
         vm.expectRevert();
         counsel.execute(id);
         assertEq(strategy.getYieldSource(source).oracle, address(0)); // still removed
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                VETO-GATED: FEE CONFIG UNDER AN IMMUTABLE CAP
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice A filing-style cap (30% perf, no entry fee) on the REAL strategy: over-cap configs
+    ///         die at propose time although the strategy itself accepts up to 51% / 100%; an at-cap
+    ///         config runs the Counsel window, then the strategy's own 1-week fee timelock, and
+    ///         lands verbatim in the strategy
+    function test_Fork_FeeConfig_TwoLeg_EndToEnd_UnderImmutableCap() public {
+        SuperVaultCounsel capped = new SuperVaultCounsel(
+            operator,
+            address(counselGovernor),
+            address(0),
+            AGGREGATOR,
+            USDC_STRATEGY,
+            address(executor),
+            VETO_WINDOW,
+            EXPIRY,
+            MIN_DEV,
+            MAX_DEV,
+            3000,
+            0
+        );
+        vm.prank(PROD_SUPER_GOVERNOR);
+        aggregator.changePrimaryManager(USDC_STRATEGY, address(capped), operator);
+        ISuperVaultStrategy.FeeConfig memory before = strategy.getConfigInfo();
+
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 3001, 0));
+        capped.proposeVaultFeeConfigUpdate(3001, 0, operator);
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 3000, 1));
+        capped.proposeVaultFeeConfigUpdate(3000, 1, operator);
+
+        vm.prank(operator);
+        uint256 id = capped.proposeVaultFeeConfigUpdate(3000, 0, operator);
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.prank(operator);
+        capped.execute(id);
+
+        // first leg only started the strategy timelock: live config unchanged, second leg not ready
+        ISuperVaultStrategy.FeeConfig memory mid = strategy.getConfigInfo();
+        assertEq(mid.performanceFeeBps, before.performanceFeeBps);
+        assertEq(mid.managementFeeBps, before.managementFeeBps);
+        vm.prank(operator);
+        vm.expectRevert();
+        capped.executeVaultFeeConfigUpdate();
+
+        vm.warp(block.timestamp + 1 weeks);
+        vm.prank(operator);
+        capped.executeVaultFeeConfigUpdate();
+        ISuperVaultStrategy.FeeConfig memory updated = strategy.getConfigInfo();
+        assertEq(updated.performanceFeeBps, 3000);
+        assertEq(updated.managementFeeBps, 0);
+        assertEq(updated.recipient, operator);
+    }
+
+    /// @notice A zero-cap Counsel on the real strategy can only ever propose zero fees
+    function test_Fork_FeeConfig_ZeroCapForbidsFees() public {
+        SuperVaultCounsel zeroCap = new SuperVaultCounsel(
+            operator,
+            address(counselGovernor),
+            address(0),
+            AGGREGATOR,
+            USDC_STRATEGY,
+            address(executor),
+            VETO_WINDOW,
+            EXPIRY,
+            MIN_DEV,
+            MAX_DEV,
+            0,
+            0
+        );
+        vm.prank(PROD_SUPER_GOVERNOR);
+        aggregator.changePrimaryManager(USDC_STRATEGY, address(zeroCap), operator);
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(ISuperVaultCounsel.INVALID_FEE_CONFIG.selector, 1, 0));
+        zeroCap.proposeVaultFeeConfigUpdate(1, 0, operator);
+        vm.prank(operator);
+        uint256 id = zeroCap.proposeVaultFeeConfigUpdate(0, 0, operator);
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.prank(operator);
+        zeroCap.execute(id);
+        vm.warp(block.timestamp + 1 weeks);
+        vm.prank(operator);
+        zeroCap.executeVaultFeeConfigUpdate();
+        assertEq(strategy.getConfigInfo().performanceFeeBps, 0);
+    }
+
+    /// @notice Removal on the real strategy: a proposal that outlives its expiry can no longer
+    ///         execute; the venue stays registered
+    function test_Fork_YieldSourceRemove_ExpiredProposalCannotExecute() public {
+        _enrollCounsel();
+        address source = strategy.getYieldSourcesList()[0].sourceAddress;
+        uint256 countBefore = strategy.getYieldSourcesCount();
+        vm.prank(operator);
+        uint256 id = counsel.proposeYieldSourceRemove(source);
+        vm.warp(block.timestamp + EXPIRY);
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, id, ISuperVaultCounsel.ProposalStatus.Expired
+            )
+        );
+        counsel.execute(id);
+        assertEq(strategy.getYieldSourcesCount(), countBefore);
+        assertTrue(strategy.containsYieldSource(source));
+    }
+
+    function test_Fork_YieldSourceRemove_GuardianVetoPreventsRemove() public {
+        _enrollCounsel();
+        ISuperVaultStrategy.YieldSourceInfo[] memory sources = strategy.getYieldSourcesList();
+        assertTrue(sources.length > 0);
+        address source = sources[0].sourceAddress;
+        address oracle = sources[0].oracle;
+        uint256 countBefore = strategy.getYieldSourcesCount();
+
+        vm.prank(operator);
+        uint256 removeId = counsel.proposeYieldSourceRemove(source);
+        vm.prank(guardian);
+        counsel.veto(removeId);
+
+        vm.warp(block.timestamp + VETO_WINDOW);
+        vm.prank(operator);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ISuperVaultCounsel.PROPOSAL_NOT_READY.selector, removeId, ISuperVaultCounsel.ProposalStatus.Vetoed
+            )
+        );
+        counsel.execute(removeId);
+
+        // source still registered on the real strategy with its original oracle
+        assertEq(strategy.getYieldSourcesCount(), countBefore);
+        assertEq(strategy.getYieldSource(source).oracle, oracle);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -557,7 +704,9 @@ contract SuperVaultCounselForkTest is Test {
             VETO_WINDOW,
             EXPIRY,
             MIN_DEV,
-            MAX_DEV
+            MAX_DEV,
+            MAX_PERF_CAP,
+            MAX_MGMT_CAP
         );
     }
 

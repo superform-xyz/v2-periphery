@@ -95,7 +95,8 @@ The only way to replace the adapter itself is a SuperGovernor emergency takeover
 - `fulfillCancelRedeemRequests(controllers)`
 - `skimPerformanceFee()`
 - `removeYieldSource(source)` — Remove enum hard-coded in the adapter (can't be bent into
-  Add/Update)
+  Add/Update). *Superseded 2026-10-12: removal is now the veto-gated `proposeYieldSourceRemove(source)`
+  (ActionType 8); see spec.md / technical-spec.md.*
 - `proposeVaultFeeConfigUpdate(perfBps, mgmtBps, recipient)` / `executeVaultFeeConfigUpdate()` —
   fee config keeps its own 1-week strategy timelock
 - `managePPSExpiration(action, staleness)`
