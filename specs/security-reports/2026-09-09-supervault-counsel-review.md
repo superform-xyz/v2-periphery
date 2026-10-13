@@ -93,9 +93,21 @@ design gap (per-leaf rollback class) were found and fixed; the rest were documen
 
 ## Test evidence
 
+Counts at the time of this review (2026-09-09); the PR head has since grown — see the refreshed row set below.
+
 | Suite | Result |
 |-------|--------|
 | `test/unit/SuperVaultCounsel.t.sol` | 92 / 92 |
 | `test/unit/SuperVaultCounsel.invariant.t.sol` | 5 / 5 (incl. `invariant_supersededNeverExecutedAndLatestOnly`) |
 | `test/integration/SuperVault/SuperVaultCounsel.fork.t.sol` | 25 / 25 |
 | `forge fmt --check`, `git diff --check` | clean |
+
+Refreshed 2026-10-13 (PR head after rounds 8–9 and the #342 fee-cap / gated-removal merge):
+
+| Suite | Result |
+|-------|--------|
+| `test/unit/SuperVaultCounsel.t.sol` | 112 / 112 |
+| `test/unit/SuperVaultCounsel.invariant.t.sol` | 7 / 7 (adds `invariant_feeConfigNeverExceedsImmutableCaps`, `invariant_feeCapsConstant`) |
+| `test/unit/SuperVaultVetoRegistry.t.sol` | 6 / 6 |
+| `test/unit/script/DeploySuperVaultCounselScript.t.sol` | 21 / 21 (address prediction is non-mutating; fleet fee-cap plumbing; checked-in 3500 / 200 defaults pinned) |
+| `test/integration/SuperVault/SuperVaultCounsel.fork.t.sol` | 31 / 31 |
