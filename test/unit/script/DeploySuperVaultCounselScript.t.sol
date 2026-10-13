@@ -125,7 +125,8 @@ contract DeploySuperVaultCounselScriptTest is Test {
         p.strategy = address(this);
     }
 
-    /// @dev A minimal counsel-fleet.json with the prod defaults mirroring the checked-in file and
+    /// @dev A minimal counsel-fleet.json with ceiling-equal prod fee defaults (5100 / 10_000, so the
+    ///      no-tightening warning path stays covered; the checked-in file tightens to 3500 / 200) and
     ///      the given per-strategy entries under chain 8453 (staging section present but empty)
     function _fixture(string memory entries8453) internal view returns (string memory) {
         string memory defaults = string(
@@ -250,6 +251,12 @@ contract DeploySuperVaultCounselScriptTest is Test {
         assertEq(entries[0].strategy, strategy);
         assertEq(entries[1].strategy, strategyB);
         assertEq(entries[2].strategy, strategyC);
+        // checked-in staging fee defaults are the agreed 3500 / 200 (below the ceilings, not zero)
+        for (uint256 i; i < entries.length; ++i) {
+            assertEq(entries[i].maxPerfFeeBps, 3500);
+            assertEq(entries[i].maxMgmtFeeBps, 200);
+            assertFalse(entries[i].allowZeroFeeCap);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
