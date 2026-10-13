@@ -257,6 +257,14 @@ contract DeploySuperVaultCounselScriptTest is Test {
             assertEq(entries[i].maxMgmtFeeBps, 200);
             assertFalse(entries[i].allowZeroFeeCap);
         }
+        // and prod (env 0) carries the same tightened defaults - a drift back to 5100 / 10_000 fails here
+        DeploySuperVaultCounsel.FleetEntry[] memory prodEntries = harness.fleetFromRegistry(0, registry);
+        assertEq(prodEntries.length, 3);
+        for (uint256 i; i < prodEntries.length; ++i) {
+            assertEq(prodEntries[i].maxPerfFeeBps, 3500);
+            assertEq(prodEntries[i].maxMgmtFeeBps, 200);
+            assertFalse(prodEntries[i].allowZeroFeeCap);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
