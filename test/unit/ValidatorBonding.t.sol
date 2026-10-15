@@ -2435,6 +2435,60 @@ contract ValidatorBondingTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+       CANCEL GRIEFING — current behaviour, differs from validator-bonding-v1.md
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Either party can cancel the other's unbond, indefinitely.
+    /// @dev The spec says cancelUnbond is restricted to whoever called requestUnbond, and gives
+    ///      the reason: "This prevents a griefing vector where one party repeatedly cancels the
+    ///      other's unbond to reset the cooldown." The implementation instead follows the
+    ///      2026-05-11 review's P3-4 recommendation and allows operator OR beneficiary, and the
+    ///      interface NatSpec records unbondingInitiator as "observability only, not
+    ///      access-controlled". The field is written on every request and never read.
+    ///
+    ///      This test pins the behaviour that actually ships: a beneficiary can block an
+    ///      operator's exit forever, and the operator can do the same to the beneficiary. It is
+    ///      NOT an endorsement. If the spec's anti-griefing property is wanted, gate cancelUnbond
+    ///      on unbondingInitiator and this test should be inverted.
+    function test_cancelGriefing_counterpartyCanBlockExitIndefinitely() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        // The operator tries to exit three times; the beneficiary cancels each attempt and the
+        // cooldown restarts from zero every round.
+        for (uint256 round; round < 3; ++round) {
+            vm.prank(operator1);
+            bonding.requestUnbond(operator1, 2_000_000e18);
+            assertEq(bonding.getBond(operator1).unbondingInitiator, operator1, "operator initiated");
+
+            vm.warp(block.timestamp + bonding.unbondingPeriod() - 1 hours); // one hour short
+
+            vm.prank(beneficiary1);
+            bonding.cancelUnbond(operator1);
+            assertEq(bonding.getBond(operator1).unbondingAmount, 0, "exit cancelled by the counterparty");
+            assertEq(bonding.getBond(operator1).unbondingDeadline, 0, "cooldown reset");
+        }
+
+        // The bond is untouched throughout: griefing delays the exit, it never moves value.
+        assertEq(bonding.getBond(operator1).amount, 2_000_000e18);
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+
+        // Symmetric: the operator can block the beneficiary's exit the same way.
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        vm.prank(operator1);
+        bonding.cancelUnbond(operator1);
+        assertEq(bonding.getBond(operator1).unbondingAmount, 0);
+
+        // An uninterrupted attempt still completes, so this is a liveness issue, not a lock-in.
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+        assertEq(supToken.balanceOf(beneficiary1), 10_000_000e18 + 2_000_000e18 - 2_000_000e18 + 2_000_000e18);
+    }
+
+    /*//////////////////////////////////////////////////////////////
        REGISTRY / STATUS CONSISTENCY — found by the invariant suite
     //////////////////////////////////////////////////////////////*/
 
