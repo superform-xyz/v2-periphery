@@ -346,8 +346,12 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
             amount = bond_.amount;
         }
 
-        // Proportional slash across bonded and unbonding portions (round up against operator)
-        if (bond_.unbondingAmount > 0) {
+        // Proportional slash across the bonded and unbonding portions. Ceil keeps the slashed
+        // total exact at `amount`; up to 1 wei of it is taken from the unbonding slice rather
+        // than the bonded remainder. Captured before the decrement because the reset below must
+        // know whether there WAS a pending unbond, not whether any of it survived the slash.
+        bool hadPendingUnbond = bond_.unbondingAmount > 0;
+        if (hadPendingUnbond) {
             uint256 slashFromUnbonding =
                 Math.mulDiv(amount, bond_.unbondingAmount, bond_.amount, Math.Rounding.Ceil);
             // Cap to actual unbonding amount (ceil rounding could exceed)
@@ -363,13 +367,18 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         if (bond_.amount < minimumBond) {
             bond_.status = ValidatorStatus.Unbonded;
             _operators.remove(operator);
+            // Dropping below the minimum cancels any pending unbond outright.
+            if (hadPendingUnbond) bond_.unbondingAmount = 0;
+        }
 
-            // Reset unbonding state when slash pushes below minimum
-            if (bond_.unbondingAmount > 0) {
-                bond_.unbondingAmount = 0;
-                bond_.unbondingDeadline = 0;
-                bond_.unbondingInitiator = address(0);
-            }
+        // Restore the documented sentinel whenever the request is gone: no pending unbond means
+        // no deadline and no initiator. This sits OUTSIDE the below-minimum branch on purpose.
+        // Ceil rounding can consume a small unbonding bucket entirely while the bond stays well
+        // above the minimum (a 1 wei slice is fully taken by any slash), and resetting only on
+        // the below-minimum path left a deadline stranded on a record with nothing pending.
+        if (hadPendingUnbond && bond_.unbondingAmount == 0) {
+            bond_.unbondingDeadline = 0;
+            bond_.unbondingInitiator = address(0);
         }
 
         emit Slashed(operator, amount, recipient, bond_.amount);
@@ -584,6 +593,11 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         bond_.beneficiary = beneficiary;
         bond_.delegateKey = delegateKey;
         bond_.status = ValidatorStatus.Bonded;
+        // A prior tenure can leave these set if it ended by a slash that consumed the unbonding
+        // bucket exactly. Clearing here means a fresh bond always starts from the documented
+        // sentinel, whatever the previous record looked like.
+        bond_.unbondingDeadline = 0;
+        bond_.unbondingInitiator = address(0);
         _operators.add(operator);
 
         emit Bonded(operator, beneficiary, msg.sender, delegateKey, amount);

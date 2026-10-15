@@ -300,6 +300,20 @@ contract ValidatorBondingInvariantTest is Test {
         }
     }
 
+    /// @notice The documented sentinel holds: a record with no pending unbond carries no deadline
+    ///         and no initiator. Catches the class where a terminal transition clears the amount
+    ///         but leaves the companion fields behind for the next tenure to inherit.
+    function invariant_noStaleUnbondFields() public view {
+        address[3] memory ops = handler.allOperators();
+        for (uint256 i; i < ops.length; ++i) {
+            IValidatorBonding.BondRecord memory b = bonding.getBond(ops[i]);
+            if (b.unbondingAmount == 0) {
+                assertEq(b.unbondingDeadline, 0, "deadline set with no pending unbond");
+                assertEq(b.unbondingInitiator, address(0), "initiator set with no pending unbond");
+            }
+        }
+    }
+
     /// @notice Every token that left the contract left through executeUnbond or slash, so the
     ///         amount paid out can never exceed what was ever put in.
     function invariant_payoutsNeverExceedDeposits() public view {

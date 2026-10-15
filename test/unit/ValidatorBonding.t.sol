@@ -2435,6 +2435,84 @@ contract ValidatorBondingTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+       UNBOND FIELD HYGIENE — stale deadline/initiator after a consuming slash
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice A slash that consumes the unbonding bucket exactly must still clear the unbonding
+    ///         fields.
+    /// @dev The reset used to be guarded on the post-decrement unbondingAmount. For a full slash
+    ///      of an Unbonding record the proportional split consumes the whole bucket, so the guard
+    ///      read zero, skipped the reset, and left a deadline and initiator on a record with no
+    ///      pending unbond. The interface documents deadline 0 as "no pending unbond", and this
+    ///      contract is explicitly read by off-chain tooling, so the dirt was observable.
+    function test_slash_consumingUnbondBucketStillClearsUnbondFields() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        assertGt(bonding.getBond(operator1).unbondingDeadline, 0);
+        assertEq(bonding.getBond(operator1).unbondingInitiator, operator1);
+
+        vm.prank(governor);
+        bonding.slash(operator1, 2_000_000e18, treasury);
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertEq(r.amount, 0);
+        assertEq(r.unbondingAmount, 0);
+        assertEq(r.unbondingDeadline, 0, "deadline must be cleared");
+        assertEq(r.unbondingInitiator, address(0), "initiator must be cleared");
+    }
+
+    /// @notice The ceil-rounding case: a tiny unbonding slice is consumed whole by any slash, so
+    ///         the bucket empties while the bond stays far above the minimum. The sentinel reset
+    ///         must therefore not be nested inside the below-minimum branch. Found by the
+    ///         invariant suite after the first, narrower fix.
+    function test_slash_ceilConsumesTinySliceWithoutDroppingBelowMinimum() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 3_000_000e18);
+
+        // a 1 wei partial unbond: remaining stays far above minimumBond
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+        assertGt(bonding.getBond(operator1).unbondingDeadline, 0);
+
+        // any slash takes ceil(amount * 1 / total) == 1, consuming the slice entirely
+        vm.prank(governor);
+        bonding.slash(operator1, 1_000e18, treasury);
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertGe(r.amount, bonding.minimumBond(), "still well above the minimum");
+        assertEq(uint8(r.status), uint8(IValidatorBonding.ValidatorStatus.Bonded), "still Bonded");
+        assertEq(r.unbondingAmount, 0, "slice consumed by ceil");
+        assertEq(r.unbondingDeadline, 0, "deadline must be cleared even above the minimum");
+        assertEq(r.unbondingInitiator, address(0), "initiator must be cleared even above the minimum");
+
+        // the record is clean enough to start a fresh unbond immediately
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1_000_000e18);
+        assertEq(bonding.getBond(operator1).unbondingAmount, 1_000_000e18);
+    }
+
+    /// @notice A new bond never inherits a previous tenure's unbonding fields
+    function test_bond_startsFromCleanUnbondFieldsAfterAConsumingSlash() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        vm.prank(governor);
+        bonding.slash(operator1, 2_000_000e18, treasury);
+
+        // re-bond under a DIFFERENT beneficiary
+        vm.startPrank(operator1);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        bonding.bond(MINIMUM_BOND, beneficiary2, delegateKey2);
+        vm.stopPrank();
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertEq(r.beneficiary, beneficiary2);
+        assertEq(r.unbondingDeadline, 0, "fresh bond must not inherit a deadline");
+        assertEq(r.unbondingInitiator, address(0), "fresh bond must not inherit an initiator");
+        assertEq(r.unbondingAmount, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
        CANCEL GRIEFING — current behaviour, differs from validator-bonding-v1.md
     //////////////////////////////////////////////////////////////*/
 
@@ -2479,7 +2557,11 @@ contract ValidatorBondingTest is Test {
         bonding.cancelUnbond(operator1);
         assertEq(bonding.getBond(operator1).unbondingAmount, 0);
 
-        // An uninterrupted attempt still completes, so this is a liveness issue, not a lock-in.
+        // An UNINTERRUPTED attempt completes, so nothing is locked by the code itself. Against an
+        // adversarial counterparty, though, there is no uninterrupted attempt: cancel is immediate
+        // while execute needs the deadline, so the canceller always gets the last word. For a
+        // Foundation loan that means the lender cannot pull its own principal back without a
+        // governance slash, which is the opposite of what validator-bonding-v1.md:144 promises.
         vm.prank(operator1);
         bonding.requestUnbond(operator1, 2_000_000e18);
         vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
