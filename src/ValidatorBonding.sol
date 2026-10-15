@@ -134,11 +134,24 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function bondFor(address operator, uint256 amount) external {
+    function bondFor(
+        address operator,
+        uint256 amount,
+        address beneficiary,
+        address delegateKey
+    )
+        external
+    {
         BondForApproval memory approval = _bondForApprovals[operator];
         if (approval.bonder != msg.sender) revert NOT_APPROVED_BONDER();
+        // The approval is operator-controlled and overwritable, so the bonder's own transaction
+        // must pin the terms it is paying for. Without this the operator could swap itself in as
+        // beneficiary between the bonder's verification and execution and keep the funded bond.
+        if (approval.beneficiary != beneficiary || approval.delegateKey != delegateKey) {
+            revert APPROVAL_MISMATCH();
+        }
         delete _bondForApprovals[operator];
-        _bondFor(operator, amount, approval.beneficiary, approval.delegateKey);
+        _bondFor(operator, amount, beneficiary, delegateKey);
     }
 
     /// @inheritdoc IValidatorBonding

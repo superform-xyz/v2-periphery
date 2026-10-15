@@ -88,6 +88,12 @@ interface IValidatorBonding is IAccessControl {
     error EXCEEDS_BOND_AMOUNT();
     /// @notice Thrown when caller is not an approved bonder for the operator
     error NOT_APPROVED_BONDER();
+
+    /// @notice Thrown when the terms the bonder passes to bondFor do not match the operator's
+    ///         live approval. The operator can overwrite its own approval at any time, so the
+    ///         bonder must state the beneficiary and delegate key it agreed to fund and have
+    ///         them checked at execution time.
+    error APPROVAL_MISMATCH();
     /// @notice Thrown when no parameter change is pending
     error NO_PENDING_CHANGE();
     /// @notice Thrown when the parameter timelock has not expired
@@ -207,10 +213,20 @@ interface IValidatorBonding is IAccessControl {
     function bond(uint256 amount, address beneficiary, address delegateKey) external;
 
     /// @notice Bond sUP on behalf of an operator (requires prior approval via approveBondFor)
-    /// @dev beneficiary and delegateKey are read from the pre-committed approval
+    /// @dev BOTH SIDES CONSENT. The operator pre-commits beneficiary and delegateKey through
+    ///      approveBondFor, and the bonder restates them here; a mismatch reverts
+    ///      APPROVAL_MISMATCH. Passing them is NOT redundant: approveBondFor overwrites the
+    ///      operator's own slot with no nonce or deadline, so an operator could otherwise show a
+    ///      lender-as-beneficiary approval, let the lender verify it, and rewrite itself as
+    ///      beneficiary before the lender's transaction landed. Since the beneficiary is immutable
+    ///      for the life of the bond, that redirection was unrecoverable except by a governance
+    ///      slash. An operator that rewrites or revokes its approval now only makes the bonder's
+    ///      transaction revert, which costs gas rather than principal.
     /// @param operator The operator address
     /// @param amount Amount of sUP to bond (must be >= minimumBond)
-    function bondFor(address operator, uint256 amount) external;
+    /// @param beneficiary The beneficiary the bonder is funding; must equal the approved value
+    /// @param delegateKey The delegate key the bonder agreed to; must equal the approved value
+    function bondFor(address operator, uint256 amount, address beneficiary, address delegateKey) external;
 
     /// @notice Approve an address to call bondFor on behalf of msg.sender, pre-committing beneficiary and delegateKey
     /// @param bonder The address to approve as a bonder

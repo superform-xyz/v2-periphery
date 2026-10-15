@@ -94,6 +94,8 @@ Two scenarios at bond time:
 
 The `beneficiary` is immutable once set (cannot be changed after bonding). This prevents an operator with a Foundation loan from redirecting tokens to themselves.
 
+**Why the bonder restates the terms.** Immutability alone is not enough, because it only fixes the beneficiary *after* the bond exists. `approveBondFor` writes the operator's own slot and can be overwritten at any time with no nonce or deadline, so an operator could publish an approval naming the lender as beneficiary, let the lender verify it, and rewrite itself as beneficiary before the lender's transaction was mined. A multisig lender is especially exposed, since its transactions are proposed, signed and executed over hours or days. The bond would then be funded by the lender but owed to the operator, and because the beneficiary is immutable the lender could not repair the record and was locked out of `requestUnbond`, `cancelUnbond` and `executeUnbond`. `bondFor` therefore takes `beneficiary` and `delegateKey` as arguments and reverts `APPROVAL_MISMATCH` if they differ from the approval. An operator that rewrites or revokes its approval can still make the bonder's transaction revert, which costs gas rather than principal.
+
 ### Input Validation
 
 All external functions must validate:
@@ -112,12 +114,13 @@ All external functions must validate:
 | `updateDelegateKey(address newKey)` | Operator OR beneficiary | Change the signing key. |
 
 **`bondFor()` logic:**
-1. Reverts if `bonds[operator].status != Unbonded` — **cannot re-bond an existing operator**. This protects beneficiary immutability. An operator must fully unbond (or be slashed to zero) before re-bonding.
-2. `transferFrom(msg.sender, address(this), amount)` — sUP comes from caller
-3. `amount >= minimumBond` required
-4. Sets `beneficiary`, `delegateKey`, status = `Bonded`
-5. Adds to `_operators` registry
-6. Emits `Bonded(operator, beneficiary, delegateKey, amount)`
+1. Reverts `NOT_APPROVED_BONDER` unless `approvals[operator].bonder == msg.sender`, then reverts `APPROVAL_MISMATCH` unless the `beneficiary` and `delegateKey` the caller passed equal the approved ones. Both sides therefore consent to the same terms in the same transaction. See "Why the bonder restates the terms" below.
+2. Reverts if `bonds[operator].status != Unbonded` — **cannot re-bond an existing operator**. This protects beneficiary immutability. An operator must fully unbond (or be slashed to zero) before re-bonding.
+3. `transferFrom(msg.sender, address(this), amount)` — sUP comes from caller
+4. `amount >= minimumBond` required
+5. Sets `beneficiary`, `delegateKey`, status = `Bonded`
+6. Adds to `_operators` registry
+7. Emits `Bonded(operator, beneficiary, delegateKey, amount)`
 
 **`addBond()` logic:**
 1. Allowed in both `Bonded` and `Unbonding` status — an operator mid-unbond can top up their bond (e.g., after a partial slash reduced them below minimum)

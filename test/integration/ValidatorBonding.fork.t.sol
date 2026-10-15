@@ -125,7 +125,7 @@ contract ValidatorBondingForkTest is Test {
         // Foundation bonds sUP on behalf of operator
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares);
-        bonding.bondFor(operator1, supShares);
+        bonding.bondFor(operator1, supShares, foundation, delegateKey1);
         vm.stopPrank();
 
         IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
@@ -231,7 +231,7 @@ contract ValidatorBondingForkTest is Test {
         uint256 supShares2 = _depositUpForSup(foundation, 3_000_000e18);
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares2);
-        bonding.bondFor(operator2, supShares2);
+        bonding.bondFor(operator2, supShares2, foundation, delegateKey2);
         vm.stopPrank();
 
         // Both bonded
@@ -255,7 +255,7 @@ contract ValidatorBondingForkTest is Test {
         uint256 supShares = _depositUpForSup(foundation, 2_000_000e18);
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares);
-        bonding.bondFor(operator1, supShares);
+        bonding.bondFor(operator1, supShares, foundation, delegateKey1);
         vm.stopPrank();
 
         // Foundation pulls back the loan (beneficiary initiates unbond)
@@ -614,7 +614,7 @@ contract ValidatorBondingForkTest is Test {
 
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares);
-        bonding.bondFor(operator1, supShares);
+        bonding.bondFor(operator1, supShares, customBeneficiary, customDelegate);
         vm.stopPrank();
 
         // Bond uses pre-committed values
@@ -649,7 +649,7 @@ contract ValidatorBondingForkTest is Test {
         uint256 supShares = _depositUpForSup(foundation, 2_000_000e18);
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares);
-        bonding.bondFor(operator1, supShares);
+        bonding.bondFor(operator1, supShares, foundation, delegateKey1);
         vm.stopPrank();
 
         uint256 bondedAmount = bonding.getBond(operator1).amount;
@@ -687,7 +687,7 @@ contract ValidatorBondingForkTest is Test {
         uint256 supShares = _depositUpForSup(foundation, 2_000_000e18);
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares);
-        bonding.bondFor(operator1, supShares);
+        bonding.bondFor(operator1, supShares, foundation, delegateKey1);
         vm.stopPrank();
 
         uint256 bondedAmount = bonding.getBond(operator1).amount;
@@ -876,7 +876,7 @@ contract ValidatorBondingForkTest is Test {
         uint256 supShares = _depositUpForSup(foundation, 3_000_000e18);
         vm.startPrank(foundation);
         sup.approve(address(bonding), supShares);
-        bonding.bondFor(operator1, supShares);
+        bonding.bondFor(operator1, supShares, customBen, delegateKey1);
         vm.stopPrank();
 
         uint256 bondedAmount = bonding.getBond(operator1).amount;

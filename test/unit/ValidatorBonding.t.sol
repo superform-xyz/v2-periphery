@@ -116,7 +116,7 @@ contract ValidatorBondingTest is Test {
 
         vm.expectEmit(true, true, false, true);
         emit IValidatorBonding.Bonded(operator1, beneficiary1, beneficiary1, delegateKey1, MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
 
         IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
@@ -134,7 +134,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(beneficiary1);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -143,7 +143,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(operator1);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(address(0), MINIMUM_BOND);
+        bonding.bondFor(address(0), MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -232,7 +232,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -244,7 +244,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator2, MINIMUM_BOND);
+        bonding.bondFor(operator2, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -262,13 +262,13 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
 
         // beneficiary1 can bond
         vm.startPrank(beneficiary1);
         supToken.approve(address(bonding), MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
 
         assertTrue(bonding.isBonded(operator1));
@@ -1270,7 +1270,7 @@ contract ValidatorBondingTest is Test {
         // Foundation bonds for operator
         vm.startPrank(beneficiary1);
         supToken.approve(address(bonding), 2_000_000e18);
-        bonding.bondFor(operator1, 2_000_000e18);
+        bonding.bondFor(operator1, 2_000_000e18, beneficiary1, delegateKey1);
         vm.stopPrank();
 
         // Governor slashes
@@ -2310,7 +2310,7 @@ contract ValidatorBondingTest is Test {
         // Bonder executes bondFor
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, customBeneficiary, customDelegate);
         vm.stopPrank();
 
         // Verify operator's bond has the pre-committed values
@@ -2363,7 +2363,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, ben2, dk2);
         vm.stopPrank();
     }
 
@@ -2384,7 +2384,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -2416,7 +2416,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(operator2);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -2430,8 +2430,105 @@ contract ValidatorBondingTest is Test {
 
         vm.expectEmit(true, true, false, true);
         emit IValidatorBonding.Bonded(operator1, beneficiary1, bonder, delegateKey1, MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+       BOND-FOR APPROVAL BINDING — operator cannot redirect a funded bond
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice The reported attack, now blocked.
+    /// @dev An operator used to be able to show a lender-as-beneficiary approval, let the lender
+    ///      verify it, then rewrite itself as beneficiary before the lender's transaction landed.
+    ///      bondFor read the beneficiary live and checked only the bonder, so the lender funded a
+    ///      bond owed to the operator. Because the beneficiary is immutable for the life of the
+    ///      bond, the lender could not repair it and was locked out of every unbond path.
+    function test_bondFor_operatorCannotRedirectFundedBondToItself() public {
+        // 1. Operator approves the lender as bonder, naming the lender as beneficiary.
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+        assertEq(bonding.getBondForApproval(operator1).beneficiary, beneficiary1, "what the lender verifies");
+
+        // 2. Before the lender's transaction lands, the operator rewrites the approval.
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, operator1, delegateKey1);
+
+        // 3. The lender funds the terms it agreed to and the call now reverts.
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        vm.expectRevert(IValidatorBonding.APPROVAL_MISMATCH.selector);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+
+        // 4. Nothing moved: no bond, no transfer, and the lender keeps its sUP.
+        assertFalse(bonding.isBonded(operator1));
+        assertEq(bonding.getBond(operator1).amount, 0);
+        assertEq(bonding.getBond(operator1).beneficiary, address(0));
+    }
+
+    /// @notice The same binding covers the delegate key, not just the beneficiary
+    function test_bondFor_revertsWhenOperatorRewritesDelegateKey() public {
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey2);
+
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        vm.expectRevert(IValidatorBonding.APPROVAL_MISMATCH.selector);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+    }
+
+    /// @notice Matching terms still fund normally and the bond is owed to the stated beneficiary
+    function test_bondFor_matchingTermsSucceedAndRecordTheStatedBeneficiary() public {
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+
+        IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
+        assertEq(record.beneficiary, beneficiary1, "bond is owed to the funder's chosen beneficiary");
+        assertEq(record.delegateKey, delegateKey1);
+        assertEq(record.amount, MINIMUM_BOND);
+    }
+
+    /// @notice The residual griefing path is a revert, never a redirection: an operator that
+    ///         revokes or rewrites costs the bonder gas, not principal
+    function test_bondFor_operatorRevocationOnlyCostsGas() public {
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+        vm.prank(operator1);
+        bonding.revokeBondForApproval();
+
+        uint256 balanceBefore = supToken.balanceOf(bonder);
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+        assertEq(supToken.balanceOf(bonder), balanceBefore, "no principal moved");
+    }
+
+    /// @notice Any pair that is not exactly the approved pair reverts
+    function testFuzz_bondFor_onlyExactApprovedTermsAreAccepted(address ben, address dk) public {
+        vm.assume(ben != address(0) && dk != address(0));
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+
+        bool matches = ben == beneficiary1 && dk == delegateKey1;
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        if (!matches) vm.expectRevert(IValidatorBonding.APPROVAL_MISMATCH.selector);
+        bonding.bondFor(operator1, MINIMUM_BOND, ben, dk);
+        vm.stopPrank();
+
+        if (matches) assertEq(bonding.getBond(operator1).beneficiary, beneficiary1);
+        else assertFalse(bonding.isBonded(operator1));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -2751,7 +2848,7 @@ contract ValidatorBondingTest is Test {
         // Bonder executes bondFor
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, customBen, customDk);
         vm.stopPrank();
 
         // Verify pre-committed values
@@ -3063,7 +3160,7 @@ contract ValidatorBondingTest is Test {
 
         // First bondFor succeeds
         vm.prank(bonder);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
 
         // Approval was consumed — getBondForApproval returns empty
         IValidatorBonding.BondForApproval memory approval = bonding.getBondForApproval(operator1);
@@ -3083,7 +3180,7 @@ contract ValidatorBondingTest is Test {
 
         // bondFor succeeds (consumes approval)
         vm.prank(bonder);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
 
         // Full unbond cycle
         vm.prank(operator1);
@@ -3095,7 +3192,7 @@ contract ValidatorBondingTest is Test {
         // Bonder tries to re-bond without fresh approval — reverts
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
         vm.prank(bonder);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
 
         // Operator must re-approve
         vm.prank(operator1);
@@ -3103,7 +3200,7 @@ contract ValidatorBondingTest is Test {
 
         // Now it works
         vm.prank(bonder);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
 
         assertTrue(bonding.isBonded(operator1));
     }
@@ -3329,7 +3426,7 @@ contract ValidatorBondingTest is Test {
 
         vm.startPrank(funder);
         supToken.approve(address(bonding), amount);
-        bonding.bondFor(op, amount);
+        bonding.bondFor(op, amount, ben, dk);
         vm.stopPrank();
     }
 
