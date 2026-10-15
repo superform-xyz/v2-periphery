@@ -159,7 +159,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         if (bonder == address(0) || beneficiary == address(0) || delegateKey == address(0)) {
             revert INVALID_ADDRESS();
         }
-        _bondForApprovals[msg.sender] = BondForApproval(bonder, beneficiary, delegateKey);
+        _bondForApprovals[msg.sender] =
+            BondForApproval({ bonder: bonder, beneficiary: beneficiary, delegateKey: delegateKey });
         emit BondForApproved(msg.sender, bonder, beneficiary, delegateKey);
     }
 
@@ -247,6 +248,11 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
 
         if (amount == bond_.amount) {
             bond_.status = ValidatorStatus.Unbonding;
+            // Registry holds Bonded and Unbonding operators. Reachable from the Unbonded-with-
+            // residual state (after a slash below minimum), where the record is not enumerated;
+            // without this the operator leaves Unbonded without ever being re-added. add() is a
+            // no-op when already present.
+            _operators.add(operator);
         }
 
         emit UnbondRequested(operator, amount, deadline);
@@ -274,6 +280,10 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
             _operators.remove(operator);
         } else if (bond_.amount >= minimumBond) {
             bond_.status = ValidatorStatus.Bonded;
+            // Same registry/status pairing as requestUnbond and cancelUnbond. Not reachable from
+            // an unenumerated record today, but keeping it here means the invariant holds by
+            // construction rather than by reachability. add() is a no-op when already present.
+            _operators.add(operator);
         } else {
             // Residual below minimum (e.g. addBond during unbonding added < minimumBond)
             bond_.status = ValidatorStatus.Unbonded;
@@ -301,6 +311,9 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         // If was full unbond, restore to Bonded
         if (bond_.status == ValidatorStatus.Unbonding) {
             bond_.status = ValidatorStatus.Bonded;
+            // Same reason as requestUnbond: keep registry membership in step with status, so a
+            // record that re-enters Bonded is always enumerable. add() is a no-op when present.
+            _operators.add(operator);
         }
 
         emit UnbondCancelled(operator, amount);

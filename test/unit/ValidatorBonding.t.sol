@@ -2435,6 +2435,85 @@ contract ValidatorBondingTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
+       REGISTRY / STATUS CONSISTENCY — found by the invariant suite
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Setup for the desync: a partial slash below the minimum leaves the operator Unbonded
+    ///      with a residual balance and removes it from the registry.
+    function _slashIntoResidual() internal returns (uint256 residual) {
+        vm.startPrank(operator1);
+        supToken.approve(address(bonding), type(uint256).max);
+        bonding.bond(MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+        assertEq(bonding.getOperators().length, 1);
+
+        vm.prank(governor);
+        bonding.slash(operator1, MINIMUM_BOND / 2, treasury);
+
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Unbonded));
+        residual = bonding.getBond(operator1).amount;
+        assertGt(residual, 0, "residual remains");
+        assertEq(bonding.getOperators().length, 0, "removed from the registry while Unbonded");
+    }
+
+    /// @notice Leaving the Unbonded state via requestUnbond must re-enter the registry.
+    /// @dev requestUnbond on an Unbonded-with-residual record sets status to Unbonding. It used to
+    ///      do so without re-adding the operator, leaving a live Unbonding record that no
+    ///      enumeration surfaced.
+    function test_registry_requestUnbondFromResidualReAddsOperator() public {
+        uint256 residual = _slashIntoResidual();
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, residual);
+
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Unbonding));
+        assertEq(bonding.getOperators().length, 1, "Unbonding operator must be enumerable");
+        assertEq(bonding.getOperators()[0], operator1);
+    }
+
+    /// @notice The escalation: cancel then top up left a fully collateralised operator that
+    ///         isBonded() reported as bonded but neither enumeration returned.
+    function test_registry_cancelThenTopUpStaysEnumerable() public {
+        uint256 residual = _slashIntoResidual();
+
+        vm.startPrank(operator1);
+        bonding.requestUnbond(operator1, residual);
+        bonding.cancelUnbond(operator1);
+        vm.stopPrank();
+
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+        assertEq(bonding.getOperators().length, 1, "Bonded operator must be enumerable");
+
+        vm.prank(operator1);
+        bonding.addBond(operator1, MINIMUM_BOND);
+
+        assertTrue(bonding.isBonded(operator1));
+        assertEq(bonding.getOperators().length, 1);
+        address[] memory active = bonding.getActiveOperators();
+        assertEq(active.length, 1, "fully collateralised operator must appear in the active set");
+        assertEq(active[0], operator1);
+    }
+
+    /// @notice Re-adding is idempotent: a normal unbond cycle never duplicates the entry.
+    function test_registry_noDuplicateEntriesOnNormalCycle() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        assertEq(bonding.getOperators().length, 1);
+
+        vm.startPrank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        assertEq(bonding.getOperators().length, 1, "no duplicate after request");
+        bonding.cancelUnbond(operator1);
+        assertEq(bonding.getOperators().length, 1, "no duplicate after cancel");
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+        assertEq(bonding.getOperators().length, 0, "removed once fully exited");
+    }
+
+    /*//////////////////////////////////////////////////////////////
        BOND-FOR APPROVAL BINDING — operator cannot redirect a funded bond
     //////////////////////////////////////////////////////////////*/
 

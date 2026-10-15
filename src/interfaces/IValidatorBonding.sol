@@ -306,8 +306,11 @@ interface IValidatorBonding is IAccessControl {
     function executeUnbondingPeriodUpdate() external;
 
     /// @notice Cancel a pending parameter change
-    /// @dev Only callable by GOVERNOR_ROLE
-    /// @param paramKey The parameter key to cancel (MINIMUM_BOND_KEY or UNBONDING_PERIOD_KEY)
+    /// @dev Access follows each key's proposer: GOVERNOR_ROLE for MINIMUM_BOND_KEY and
+    ///      UNBONDING_PERIOD_KEY, DEFAULT_ADMIN_ROLE for PARAMETER_TIMELOCK_KEY. The governor
+    ///      therefore cannot cancel an admin-proposed timelock change, or vice versa.
+    /// @param paramKey The parameter key to cancel (MINIMUM_BOND_KEY, UNBONDING_PERIOD_KEY or
+    ///        PARAMETER_TIMELOCK_KEY)
     function cancelProposedChange(bytes32 paramKey) external;
 
     /// @notice Propose a new parameter timelock duration (subject to current timelock)
