@@ -2516,6 +2516,36 @@ contract ValidatorBondingTest is Test {
        CANCEL GRIEFING — current behaviour, differs from validator-bonding-v1.md
     //////////////////////////////////////////////////////////////*/
 
+    /// @notice The single pending-unbond slot is occupiable by either party.
+    /// @dev Read together with the griefing test below, this is the constraint on any fix.
+    ///      requestUnbond reverts PENDING_UNBOND_EXISTS while a request is live, so a 1 wei
+    ///      request parks the slot. Today the counterparty escapes only because cancelUnbond is
+    ///      open to both. Restricting cancel to unbondingInitiator -- the obvious fix for the
+    ///      griefing -- would turn this squat into a hard block on the other party's exit. Any
+    ///      resolution has to address both at once, for example per-party request slots, or
+    ///      cancel-own-request plus a no-cancel window before the deadline.
+    function test_cancelGriefing_singleSlotIsSquattableByEitherParty() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1); // park the slot with dust
+
+        vm.prank(beneficiary1);
+        vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        // the escape hatch is the open cancel, which is also the griefing vector
+        vm.prank(beneficiary1);
+        bonding.cancelUnbond(operator1);
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        assertEq(bonding.getBond(operator1).unbondingAmount, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.cancelUnbond(operator1);
+        assertEq(bonding.getBond(operator1).unbondingAmount, 0, "and straight back round");
+    }
+
     /// @notice Either party can cancel the other's unbond, indefinitely.
     /// @dev The spec says cancelUnbond is restricted to whoever called requestUnbond, and gives
     ///      the reason: "This prevents a griefing vector where one party repeatedly cancels the

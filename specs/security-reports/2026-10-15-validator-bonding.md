@@ -2,7 +2,8 @@
 
 **Target:** `src/ValidatorBonding.sol`, `src/interfaces/IValidatorBonding.sol`
 **Branch:** `fix/validator-bonding-bondfor-approval-binding`, cut from `dev` at `6a6dbfae`
-**Mode:** review (inline critical-pattern scan + 3 parallel agents)
+**Mode:** review (inline critical-pattern scan + 3 parallel agents: vulnerability database,
+coding standards, external exploit-precedent research)
 **Trigger:** external bounty finding #182 against `bondFor`, plus a request for broader review
 **Prior reviews:** `2026-05-07-validator-bonding.md`, `2026-05-11-validator-bonding.md`
 **Spec:** `specs/validator-bonding-v1.md`
@@ -16,7 +17,7 @@
 |---|---|---|---|
 | P0 Critical | 0 | — | — |
 | P1 High | 2 | 1 | yes |
-| P2 Medium | 3 | 2 | no |
+| P2 Medium | 4 | 2 | no |
 | P3 Low | 5 | 1 | no |
 
 **Verdict: FAIL pending one decision.** No P0. Of the two P1s, the reported `bondFor` redirect is
@@ -98,11 +99,27 @@ Three options, in rough order of cost:
 Current behaviour is pinned by `test_cancelGriefing_counterpartyCanBlockExitIndefinitely`, which is
 written to be inverted if option 1 or 2 is taken. Externally this is bounty finding #121.
 
+### [H-2a] The single pending-unbond slot is squattable, which constrains the H-2 fix
+Either party can park the one request slot with a 1 wei `requestUnbond`, and the other then cannot
+start its own exit at all. Today the counterparty escapes only because cancel is open to both.
+
+That makes the obvious fix for H-2 wrong on its own: restricting cancel to the initiator converts
+the griefing into a hard block. Any resolution has to solve both at once, for example per-party
+request slots, or cancel-your-own-request combined with a no-cancel window before the deadline.
+Pinned by `test_cancelGriefing_singleSlotIsSquattableByEitherParty`.
+
 ### [M-3] `updateDelegateKey` has the same last-write-wins shape
 The spec justifies beneficiary access as a remedy for a compromised operator key. The function is
 symmetric and unbounded, so in exactly that scenario the attacker holding the operator key rotates
 straight back. The documented remedy is unavailable. Either make beneficiary rotation sticky, or
 correct the spec and route key containment through the oracle's own permissioned set.
+
+### [M-4] A slash across the minimum resets the counterparty's exit clock
+When a slash drops the bond below the minimum, the pending unbond is cancelled outright. A
+beneficiary six days into a seven-day exit loses the whole period to a partial slash of the
+operator's bond, and governance can reset any exit clock at will by slashing one wei past the
+margin. Preserving the deadline and scaling the pending amount down would match how the residual
+state is handled everywhere else. Raised by the external-precedent agent; not previously reported.
 
 ### [L-2] Approvals have no expiry, nonce, or amount
 A forgotten approval stays usable forever, so the approved bonder can squat the record years later
@@ -123,6 +140,33 @@ live options.
 Resolved either way by H-2: option 1 or 2 makes it load-bearing, option 3 means it should move to
 the event.
 
+## Design notes, not defects
+
+**The minimum bond is denominated in appreciating shares.** The threshold is a count of sUP, which
+is a vault share whose value floats. Upward drift raises the real entry barrier with no governance
+action and grandfathers existing cohorts. Downward drift is the dangerous half: if the vault takes a
+loss, the economic security behind every validator shrinks, nothing changes state, nothing is
+emitted, and the bonded check keeps passing. Lido's community staking module splits exactly this —
+the bond is *held* in shares so the operator earns the yield, while the *requirement* is denominated
+in the underlying and reconciled continuously. Worth a decision, either denominating the requirement
+in UP or running an off-chain monitor on the converted value. Note that converting on-chain would
+introduce a share-price read, which is its own well-documented hazard class and must not be read
+spot.
+
+**A matured unbond request never expires.** Once the deadline passes the holder has a standing
+option to exit at any future block, including the block they learn a slash is coming. This is the
+previously accepted P2-3, but the external research sharpens it: the governor is a Safe, so a
+pending slash is visible during signature collection, which turns a mempool race into hours or days
+of warning. A cheap freeze outside the parameter timelock would close it without redesigning
+anything. Worth re-weighing the earlier acceptance in light of H-2, since the beneficiary cannot
+reliably reach its own deadline either.
+
+**Arbitrary slash recipient, uncapped, with no delay.** Documented as deliberate in the contract
+header and bounded by the trusted-multisig model, so this is the shape rather than a dispute. Two
+things make it worth revisiting: the latency is inverted, with a harmless parameter tweak waiting two
+days while total irreversible loss is synchronous, and the admin role can grant itself the governor
+role in one transaction, so the parameter timelock protects no funds.
+
 ## Checked and found sound
 
 Reported so they are not re-raised. Reentrancy across all seven mutating externals, with CEI
@@ -140,10 +184,10 @@ execution.
 
 | Suite | Before | After |
 |---|---|---|
-| Unit | 188 | 195 |
+| Unit | 188 | 196 |
 | Invariant | none | 8 |
 | Fork | 21 | 21 |
-| Full unit sweep | 1267 | 1282 |
+| Full unit sweep | 1267 | 1283 |
 
 `test/unit/ValidatorBonding.invariant.t.sol` is new. A handler random-walks the full lifecycle and
 runs two adversarial actions, a `bondFor` redirect attempt and third-party writes against every
@@ -151,6 +195,22 @@ entry point. It asserts: unbonding never exceeds the bond, solvency, beneficiary
 bond epoch, registry and status agreement, active-set collateralisation, the unbond-field sentinel,
 and that no redirected or third-party write ever lands. Two of the three fixes in this branch were
 found by it rather than by review.
+
+## On the external research agent's severity ratings
+
+That agent rated four items P0. I have not carried those ratings across, for reasons worth
+recording. Two of them, the permissionless parameter execute and the non-expiring matured unbond,
+are previously reviewed and accepted items rather than new discoveries. A third, the arbitrary slash
+recipient, is documented as deliberate in the contract header. The fourth is H-2, which I agree is
+the most serious open item but which is a conflict between two prior decisions rather than an
+unrecognised flaw. Its exploit-precedent work is genuinely valuable and the Safe-visibility argument
+is new, but the ratings are calibrated for an unreviewed contract and would overstate the position
+here.
+
+One of its findings I assess as weaker than rated. It argues that topping up a bond during a pending
+unbond dilutes a subsequent slash by inflating the proportional denominator. The split does move,
+but the total slashed is unchanged and both buckets ultimately pay the same beneficiary, so this
+shifts the timing of receipt rather than sheltering value.
 
 ## Notes
 
