@@ -93,7 +93,7 @@ abstract contract ConfigBase is Constants {
 
     /// @notice Gas to WEI oracle on Arc (SuperformGasOracle - keeper updated; no Chainlink gas feed on Arc).
     ///         Deterministic address (default initial price, DEPLOYER owner) - identical to Base/HyperEVM/Flare/BNB.
-    ///         Deploy via script/run/deploy_superform_gas_oracle.sh before the periphery run.
+    ///         Deploy via script/run/deploy/deploy_superform_gas_oracle.sh before the periphery run.
     address internal constant ORACLE_GAS_TO_WEI_ARC = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;
 
     /// @notice ETH/USD oracle on Mainnet

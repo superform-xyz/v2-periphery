@@ -23,6 +23,17 @@
 # Step 4 (grantSessionKeysBatch to re-onboard keepers) is keeper-specific and
 # deliberately not automated here - run it as a follow-up operator action.
 #
+# SAFE TO RE-RUN, for one specific reason. Both steps are skipped entirely when the
+# executor is already a secondary manager. A seating wipes every secondary, so a
+# still-seated executor proves no seating has happened since enrollment, which proves
+# no keys survive from a prior tenure. Without that guard a second run AFTER step 4
+# would invalidate the keeper keys you just granted and stop the keepers silently.
+# This matters most for runAll across a fleet where some strategies are already
+# onboarded, which is the normal second invocation.
+#
+# A run in which every strategy was skipped now FAILS rather than reporting success,
+# so a wrong operator account cannot look like a clean run in CI.
+#
 # Usage:
 #   ./configure_supervault_counsel.sh <environment> <mode> [account] [chain_id] [strategy]
 #

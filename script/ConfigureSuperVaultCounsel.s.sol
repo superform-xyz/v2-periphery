@@ -15,6 +15,13 @@ import { console2 } from "forge-std/console2.sol";
 ///         ORDER MATTERS: the executor validates grants against the current primary manager and
 ///         its key generation, and a manager change does not bump the generation, so a Counsel
 ///         reinstated at the SAME address revives every unexpired key from its previous tenure.
+///
+///         SAFE TO RE-RUN, but only because of one guard. Both steps are skipped entirely when the
+///         executor is already a secondary manager. A seating wipes every secondary, so a still
+///         seated executor proves no seating has happened since enrollment, which proves no stale
+///         keys exist. Without that guard a second run after step 4 would invalidate the keeper
+///         keys just granted and stop the keepers with no error anywhere. Do not "simplify" the
+///         guard to cover enrollExecutor alone: that was the original bug.
 ///         Seating wipes the executor from the secondary set, which is what keeps those revived
 ///         keys inert; enrolling the executor before invalidating them re-arms them for the
 ///         gap between the two (separately mined) transactions. Invalidate first.
@@ -53,22 +60,34 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         console2.log("Strategy mainManager:", mainManager);
         require(mainManager == address(counsel), "COUNSEL_NOT_SEATED_RUN_CHANGE_PRIMARY_MANAGER_FIRST");
 
-        // Pre-flight: both calls below are operator-gated
+        // Pre-flight: both calls below are operator-gated. Compare against the RESOLVED
+        // broadcaster, not msg.sender: on vnet the modifier broadcasts from a key derived from
+        // MNEMONIC while msg.sender stays foundry's default sender, so a msg.sender check there
+        // is meaningless and elsewhere passes only because the runner sets --sender.
         address operator = counsel.OPERATOR();
         console2.log("Counsel OPERATOR:", operator);
-        console2.log("Broadcaster:", msg.sender);
-        require(msg.sender == operator, "BROADCASTER_IS_NOT_COUNSEL_OPERATOR");
+        console2.log("Broadcaster:", _broadcaster);
+        require(_broadcaster == operator, "BROADCASTER_IS_NOT_COUNSEL_OPERATOR");
 
-        // Step 2: invalidate any session keys surviving from a prior tenure — BEFORE the
-        // executor regains manager powers (a reinstated Counsel's old grants revive with the seat)
-        console2.log("[Step 2] Calling invalidateAllSessionKeys()...");
-        counsel.invalidateAllSessionKeys();
-        console2.log("[Step 2] DONE");
-
-        // Step 3: re-enroll the executor (seating wiped all secondary managers)
-        if (aggregator.isSecondaryManager(executor, strategy)) {
-            console2.log("[Step 3] Executor already enrolled as secondary manager - skipping");
+        // Steps 2 and 3, guarded together so the script is safe to re-run.
+        //
+        // A seating wipes every secondary manager. So an executor that is STILL a secondary proves
+        // no seating has happened since it was enrolled, which in turn proves no keys survive from
+        // a prior tenure. Both steps are then not merely redundant but harmful: a second run after
+        // step 4 would invalidate the keeper keys just granted and silently halt the keepers.
+        // Guarding only enrollExecutor, as this script previously did, left exactly that hole.
+        if (!_needsEnrollment(aggregator, executor, strategy)) {
+            console2.log("[Steps 2-3] Executor is already a secondary manager.");
+            console2.log("            No seating since enrollment, so no stale keys can exist.");
+            console2.log("            SKIPPING BOTH - invalidating here would kill live keeper keys.");
         } else {
+            // Order matters: invalidate BEFORE the executor regains manager powers, because a
+            // Counsel reinstated at the same address revives every unexpired key from its
+            // previous tenure (a manager change does not bump the executor's key generation).
+            console2.log("[Step 2] Calling invalidateAllSessionKeys()...");
+            counsel.invalidateAllSessionKeys();
+            console2.log("[Step 2] DONE");
+
             console2.log("[Step 3] Calling enrollExecutor()...");
             counsel.enrollExecutor();
             console2.log("[Step 3] DONE");
@@ -109,10 +128,11 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
 
         console2.log("====== Configure SuperVaultCounsel for the curated fleet ======");
         console2.log("Strategies to process:", strategies.length);
-        console2.log("Broadcaster:", msg.sender);
+        console2.log("Broadcaster:", _broadcaster);
         console2.log("");
 
         uint256 configured;
+        uint256 alreadyEnrolled;
         uint256 skipped;
         for (uint256 i = 0; i < strategies.length; i++) {
             address strategy = strategies[i];
@@ -130,23 +150,28 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
                 skipped++;
                 continue;
             }
-            if (counsel.OPERATOR() != msg.sender) {
+            if (counsel.OPERATOR() != _broadcaster) {
                 console2.log("    SKIP: broadcaster is not this Counsel's operator:", counsel.OPERATOR());
                 skipped++;
                 continue;
             }
 
             address executor = address(counsel.EXECUTOR());
+            // See run(): a still-seated executor proves no seating since enrollment, so no stale
+            // keys exist and invalidating would destroy the live keeper keys from step 4. This is
+            // the guard that makes runAll safe across a fleet where some strategies are onboarded.
+            if (!_needsEnrollment(aggregator, executor, strategy)) {
+                console2.log("    ALREADY ENROLLED: skipping both steps (would kill live keeper keys)");
+                alreadyEnrolled++;
+                continue;
+            }
+
             // invalidate FIRST: stale keys from a prior tenure revive with the seat and must be
             // dead before the executor regains manager powers
             counsel.invalidateAllSessionKeys();
             console2.log("    invalidateAllSessionKeys: DONE");
-            if (aggregator.isSecondaryManager(executor, strategy)) {
-                console2.log("    enrollExecutor: already enrolled - skipping call");
-            } else {
-                counsel.enrollExecutor();
-                console2.log("    enrollExecutor: DONE");
-            }
+            counsel.enrollExecutor();
+            console2.log("    enrollExecutor: DONE");
             require(aggregator.isSecondaryManager(executor, strategy), "EXECUTOR_ENROLLMENT_FAILED");
             configured++;
         }
@@ -154,8 +179,40 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         console2.log("");
         console2.log("====== Fleet enrollment complete ======");
         console2.log("Configured:", configured);
+        console2.log("Already enrolled:", alreadyEnrolled);
         console2.log("Skipped:", skipped);
         console2.log("NEXT: operator runs grantSessionKeysBatch(...) per configured strategy (step 4)");
+
+        // Fail loudly rather than reporting success after doing nothing. A run where every
+        // strategy was skipped (wrong operator account, nothing seated yet, no Counsel deployed)
+        // used to exit zero, so CI and runbook automation could not tell it from a real run.
+        // "Already enrolled" counts as success: that is the idempotent re-run working as intended.
+        if (strategies.length > 0 && configured == 0 && alreadyEnrolled == 0) {
+            revert("NOTHING_CONFIGURED_EVERY_STRATEGY_SKIPPED");
+        }
+    }
+
+    /// @notice Whether enrollment steps 2 and 3 still need to run for this strategy.
+    /// @dev The whole safety of re-running this script rests here. A seating wipes every secondary
+    ///      manager, so an executor that is STILL a secondary proves no seating has occurred since
+    ///      it was enrolled, which proves no session keys survive from a prior tenure. Running the
+    ///      steps anyway would invalidate the keeper keys granted in step 4 and silently stop the
+    ///      keepers. Returning false here is therefore a correctness requirement, not an
+    ///      optimisation.
+    /// @param aggregator The SuperVaultAggregator
+    /// @param executor The Counsel's executor
+    /// @param strategy The strategy being enrolled
+    /// @return True when the steps must run, false when they must be skipped
+    function _needsEnrollment(
+        ISuperVaultAggregator aggregator,
+        address executor,
+        address strategy
+    )
+        internal
+        view
+        returns (bool)
+    {
+        return !aggregator.isSecondaryManager(executor, strategy);
     }
 
     /// @notice Read-only enrollment status for one strategy's Counsel
