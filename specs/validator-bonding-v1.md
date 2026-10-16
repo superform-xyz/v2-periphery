@@ -152,9 +152,20 @@ The operator keeps its repayment route, since its own request still matures and 
 
 Two earlier positions are superseded. The original design restricted cancellation to the initiator, which stops the mutual-reset griefing but leaves no way to clear an occupied slot. The 2026-05-11 review's P3-4 then broadened cancellation to either party, which clears slots but hands the operator a veto over the lender's exit. Gating on the beneficiary closes both.
 
+**The beneficiary may supersede a pending request.** One request is pending at a time, with that
+single exception. It exists because beneficiary-only cancellation protects a recall once installed
+but does not let the beneficiary install one: cancelling and requesting are separate transactions,
+so an operator that re-requests 1 wei in between keeps the slot occupied and the recall reverts
+every round. A multisig beneficiary is worst affected, since the gap is however long signature
+collection takes. Superseding removes the gap. A supersession emits `UnbondCancelled` for the
+replaced request before `UnbondRequested` for the new one, restarts the cooldown, and returns the
+status to `Bonded` if it shrinks a full request to a partial one. The operator can neither cancel
+nor supersede; its recourse is the beneficiary.
+
 **`requestUnbond()` logic:**
 1. `msg.sender == operator || msg.sender == beneficiary`
-2. Reverts if there is already a pending unbond (`unbondingAmount > 0`) — one pending unbond at a time
+2. Reverts `PENDING_UNBOND_EXISTS` if a request is already pending, UNLESS the caller is the
+   beneficiary, who supersedes it atomically (see above)
 3. If partial: `bond.amount - amount >= minimumBond` required (checked against total `amount`, not effective balance)
 4. If full (`amount == bond.amount`): status = `Unbonding`
 5. If partial: status stays `Bonded`

@@ -33,6 +33,7 @@ contract BondingHandler is Test {
     mapping(address operator => bool seen) public ghost_everBonded;
     uint256 public ghost_mismatchedBondForAccepted;
     uint256 public ghost_thirdPartyWriteAccepted;
+    uint256 public ghost_beneficiaryLockedOut;
     uint256 public ghost_totalPaidOut;
 
     // Successful-transition counters. Every action swallows expected reverts, so without these a
@@ -122,6 +123,33 @@ contract BondingHandler is Test {
             _recordBeneficiary(op, shown);
         } catch { }
         vm.stopPrank();
+    }
+
+    /// @notice ADVERSARIAL. The operator tries to hold the slot against the beneficiary, which is
+    ///         R2-F1. It squats, and on the next turn the beneficiary must still be able to
+    ///         install a full recall in one call. Counted so the invariant can assert zero wins.
+    function operatorSquatsTheSlot(uint256 seed) external {
+        address op = _op(seed);
+        IValidatorBonding.BondRecord memory r = bonding.getBond(op);
+        if (r.amount == 0 || r.beneficiary == address(0)) return;
+
+        if (r.unbondingAmount == 0) {
+            vm.prank(op);
+            try bonding.requestUnbond(op, 1) { } catch { return; }
+        }
+
+        // the beneficiary must be able to take the slot back atomically, whatever is in it.
+        // Both reads MUST happen before vm.prank: an external call in an argument position
+        // consumes the prank, so requestUnbond would arrive from this handler and revert on
+        // authorisation rather than on the thing under test.
+        address ben = bonding.getBond(op).beneficiary;
+        uint256 full = bonding.getBond(op).amount;
+        vm.prank(ben);
+        try bonding.requestUnbond(op, full) {
+            ++ghost_requested;
+        } catch {
+            ++ghost_beneficiaryLockedOut;
+        }
     }
 
     /// @notice ADVERSARIAL. Someone who is neither operator nor beneficiary tries every
@@ -410,6 +438,13 @@ contract ValidatorBondingInvariantTest is Test {
                 assertEq(b.beneficiary, handler.ghost_firstBeneficiary(op), "beneficiary changed under a live bond");
             }
         }
+    }
+
+    /// @notice The beneficiary can always take the pending slot, whatever the operator parks in
+    ///         it. This is R2-F1 as an invariant: a squat may cost the beneficiary a transaction
+    ///         but can never deny it the exit, because supersession is atomic.
+    function invariant_beneficiaryCanAlwaysReclaimTheSlot() public view {
+        assertEq(handler.ghost_beneficiaryLockedOut(), 0, "operator held the slot against the beneficiary");
     }
 
     /// @notice Nobody outside the operator/beneficiary pair, and outside GOVERNOR_ROLE for slash,

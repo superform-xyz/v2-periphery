@@ -262,7 +262,25 @@ interface IValidatorBonding is IAccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Request unbonding of sUP (partial or full)
-    /// @dev Callable by operator or beneficiary
+    /// @dev Callable by operator or beneficiary. One request may be pending at a time, with one
+    ///      exception: THE BENEFICIARY MAY SUPERSEDE A PENDING REQUEST, replacing it atomically in
+    ///      the same transaction and restarting the cooldown.
+    ///
+    ///      That exception is load-bearing, not a convenience. Gating cancellation on the
+    ///      beneficiary protects a recall once installed, but it does not let the beneficiary
+    ///      install one: cancel and request are separate transactions, so an operator that
+    ///      re-requests 1 wei in between keeps the slot occupied and the recall reverts
+    ///      PENDING_UNBOND_EXISTS every round. A multisig beneficiary is worst affected, since the
+    ///      gap is however long signature collection takes. Superseding closes that race because
+    ///      there is no gap to race into.
+    ///
+    ///      A supersession emits UnbondCancelled for the replaced request before UnbondRequested
+    ///      for the new one, so indexers never observe two live requests. Superseding a full
+    ///      request with a partial one returns the status to Bonded, mirroring cancelUnbond.
+    ///
+    ///      The operator cannot supersede, and cannot cancel. Its recourse is the beneficiary.
+    ///      The asymmetry is deliberate: the beneficiary is the payee and, in a loan, the only
+    ///      party with capital at risk.
     /// @param operator The operator to unbond
     /// @param amount Amount to unbond (partial: remaining must be >= minimumBond)
     function requestUnbond(address operator, uint256 amount) external;

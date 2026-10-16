@@ -94,8 +94,12 @@ consequently not a claim on the funds but a decision about whether the bond stay
 that belongs to the payee. Gating it there closes both halves at once:
 
 - the operator cannot veto a recall, so the beneficiary's exit is genuinely unilateral;
-- a squat is survivable, since the beneficiary can clear any pending request and open its own, and
-  the operator cannot clear that one back out;
+- a squat cannot deny the exit, since the beneficiary supersedes any pending request atomically in
+  a single transaction, and the operator can neither cancel nor replace what the beneficiary
+  installs. The first version of this fix gated cancellation only, which protected an installed
+  recall but still let the operator re-squat between the beneficiary's clear and request
+  transactions; review round two of PR #343 caught that, and the shipped test had hidden it by
+  placing those two calls back to back;
 - the operator keeps its repayment route, because its own request still matures and still pays the
   beneficiary, it simply cannot cancel one;
 - a self-bond is unaffected, the two addresses being the same.

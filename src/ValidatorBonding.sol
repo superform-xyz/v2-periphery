@@ -231,7 +231,13 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         if (bond_.status != ValidatorStatus.Bonded && bond_.status != ValidatorStatus.Unbonding && !hasResidual) {
             revert INVALID_STATUS();
         }
-        if (bond_.unbondingAmount > 0) revert PENDING_UNBOND_EXISTS();
+        // One pending request at a time, EXCEPT that the beneficiary may supersede it in the
+        // same transaction. Without this, clearing a squatted slot and installing a real request
+        // are two transactions, and an operator re-requesting 1 wei in between blocks the
+        // beneficiary's recall forever. Cancel-then-request is not atomic; this is. The
+        // beneficiary is the payee and the party whose capital is at risk, so it owns the slot.
+        uint256 supersededAmount = bond_.unbondingAmount;
+        if (supersededAmount > 0 && msg.sender != bond_.beneficiary) revert PENDING_UNBOND_EXISTS();
         if (amount > bond_.amount) revert EXCEEDS_BOND_AMOUNT();
 
         // Partial unbond: remaining must be >= minimumBond (skip check for Unbonded residual withdrawal)
@@ -240,6 +246,13 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         }
 
         // Effects
+        // Announce the supersession as a cancellation first, so an indexer following
+        // UnbondRequested/UnbondCancelled never sees two live requests and its state machine
+        // stays consistent with the chain.
+        if (supersededAmount > 0) {
+            emit UnbondCancelled(operator, supersededAmount);
+        }
+
         uint256 deadline = block.timestamp + unbondingPeriod;
         bond_.unbondingAmount = amount;
         bond_.unbondingDeadline = SafeCast.toUint48(deadline);
@@ -252,6 +265,12 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
             // without this the operator leaves Unbonded without ever being re-added. add() is a
             // no-op when already present.
             _operators.add(operator);
+        } else if (bond_.status == ValidatorStatus.Unbonding) {
+            // Supersession can shrink a full request to a partial one, which means the record is
+            // no longer fully on its way out. Mirrors what cancelUnbond does for the same reason.
+            // Only reachable through the beneficiary path above, since a fresh request cannot find
+            // the record already Unbonding.
+            bond_.status = ValidatorStatus.Bonded;
         }
 
         emit UnbondRequested(operator, amount, deadline);

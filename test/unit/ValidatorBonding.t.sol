@@ -483,9 +483,10 @@ contract ValidatorBondingTest is Test {
         bonding.requestUnbond(operator1, 0);
     }
 
+    /// @dev Uses a THIRD-PARTY beneficiary on purpose. The original version self-bonded, so
+    ///      operator == beneficiary and the second request is now a legitimate supersession.
     function test_requestUnbond_revertsPendingExists() public {
-        uint256 bondAmount = 2_000_000e18;
-        _bondOperator(operator1, operator1, delegateKey1, bondAmount);
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
 
         vm.startPrank(operator1);
         bonding.requestUnbond(operator1, 500_000e18);
@@ -493,6 +494,18 @@ contract ValidatorBondingTest is Test {
         vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
         bonding.requestUnbond(operator1, 500_000e18);
         vm.stopPrank();
+    }
+
+    /// @notice A self-bonder is its own beneficiary, so it may supersede its own request
+    function test_requestUnbond_selfBonderMaySupersedeItsOwnRequest() public {
+        _bondOperator(operator1, operator1, delegateKey1, 2_000_000e18);
+
+        vm.startPrank(operator1);
+        bonding.requestUnbond(operator1, 500_000e18);
+        bonding.requestUnbond(operator1, 900_000e18);
+        vm.stopPrank();
+
+        assertEq(bonding.getBond(operator1).unbondingAmount, 900_000e18, "superseded in place");
     }
 
     function test_requestUnbond_revertsPartialBelowMinimum() public {
@@ -2541,6 +2554,149 @@ contract ValidatorBondingTest is Test {
         assertEq(supToken.balanceOf(beneficiary1) - balanceBefore, 2_000_000e18, "lender recovered principal");
     }
 
+    /// @notice R2-F1: the operator cannot re-squat between the beneficiary's two transactions.
+    /// @dev This is the sequence the first fix missed. Beneficiary-only cancel protects a recall
+    ///      once installed but does not let the beneficiary install one, because cancel and
+    ///      request are separate transactions. An operator re-requesting 1 wei in the gap blocked
+    ///      the recall forever. The earlier dust test hid it by placing the two calls back to
+    ///      back, which silently assumed an atomicity that does not exist on chain.
+    function test_cancel_operatorCannotResquatBetweenTheBeneficiarysTransactions() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        for (uint256 round; round < 5; ++round) {
+            vm.prank(operator1);
+            bonding.requestUnbond(operator1, 1); // squat
+
+            // the beneficiary no longer needs to clear first: one transaction supersedes
+            vm.prank(beneficiary1);
+            bonding.requestUnbond(operator1, 2_000_000e18);
+            assertEq(bonding.getBond(operator1).unbondingAmount, 2_000_000e18, "recall installed");
+
+            // and the operator cannot take the slot back
+            vm.prank(operator1);
+            vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
+            bonding.requestUnbond(operator1, 1);
+
+            vm.prank(beneficiary1);
+            bonding.cancelUnbond(operator1); // reset for the next round
+        }
+
+        // and a recall left alone completes
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        uint256 balanceBefore = supToken.balanceOf(beneficiary1);
+        vm.prank(beneficiary1);
+        bonding.executeUnbond(operator1);
+        assertEq(supToken.balanceOf(beneficiary1) - balanceBefore, 2_000_000e18, "lender recovered principal");
+    }
+
+    /// @notice Superseding a full request with a partial one returns the status to Bonded
+    function test_supersede_fullToPartialRestoresBondedStatus() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Unbonding));
+
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 1_000_000e18); // partial supersedes the full
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertEq(uint8(r.status), uint8(IValidatorBonding.ValidatorStatus.Bonded), "no longer fully exiting");
+        assertEq(r.unbondingAmount, 1_000_000e18);
+        assertEq(bonding.getOperators().length, 1, "still enumerable");
+    }
+
+    /// @notice Superseding a partial with a full moves to Unbonding and stays enumerable
+    function test_supersede_partialToFullSetsUnbonding() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1_000_000e18);
+
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertEq(uint8(r.status), uint8(IValidatorBonding.ValidatorStatus.Unbonding));
+        assertEq(r.unbondingAmount, 2_000_000e18);
+        assertEq(bonding.getOperators().length, 1);
+    }
+
+    /// @notice Supersession restarts the cooldown and re-stamps the initiator
+    function test_supersede_restartsCooldownAndRecordsTheNewInitiator() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+        uint48 firstDeadline = bonding.getBond(operator1).unbondingDeadline;
+        assertEq(bonding.getBond(operator1).unbondingInitiator, operator1);
+
+        vm.warp(block.timestamp + 3 days);
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertGt(r.unbondingDeadline, firstDeadline, "cooldown restarts from the supersession");
+        assertEq(r.unbondingInitiator, beneficiary1, "initiator is now the beneficiary");
+    }
+
+    /// @notice A supersession emits the cancellation before the new request, so an indexer never
+    ///         observes two live requests
+    function test_supersede_emitsCancelThenRequest() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+
+        vm.recordLogs();
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 cancelled = keccak256("UnbondCancelled(address,uint256)");
+        bytes32 requested = keccak256("UnbondRequested(address,uint256,uint256)");
+        uint256 cancelIdx = type(uint256).max;
+        uint256 requestIdx = type(uint256).max;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].topics[0] == cancelled) cancelIdx = i;
+            if (logs[i].topics[0] == requested) requestIdx = i;
+        }
+        assertTrue(cancelIdx != type(uint256).max, "supersession emits UnbondCancelled");
+        assertTrue(requestIdx != type(uint256).max, "and UnbondRequested");
+        assertLt(cancelIdx, requestIdx, "cancel must precede the new request");
+    }
+
+    /// @notice Only the beneficiary may supersede; the operator still cannot take an occupied slot
+    function test_supersede_operatorCannotSupersede() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        vm.prank(operator1);
+        vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
+        bonding.requestUnbond(operator1, 1);
+
+        // a third party cannot either, and fails on authorisation first
+        vm.prank(operator2);
+        vm.expectRevert(IValidatorBonding.NOT_OPERATOR_OR_BENEFICIARY.selector);
+        bonding.requestUnbond(operator1, 1);
+    }
+
+    /// @notice Supersession still respects the partial-unbond floor
+    function test_supersede_stillEnforcesMinimumBondOnPartials() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+
+        vm.prank(beneficiary1);
+        vm.expectRevert(IValidatorBonding.BELOW_MINIMUM_BOND.selector);
+        bonding.requestUnbond(operator1, 1_500_000e18); // would leave 500k, under the 1M floor
+    }
+
     /// @notice A dust request parks the single slot, but no longer traps the beneficiary.
     /// @dev requestUnbond rejects a second request while one is pending, so the slot is still
     ///      occupiable. What changed is the escape: the beneficiary can clear any request and the
@@ -2552,18 +2708,19 @@ contract ValidatorBondingTest is Test {
         vm.prank(operator1);
         bonding.requestUnbond(operator1, 1); // squat
 
+        // One transaction, no clear-then-request dance: the beneficiary supersedes in place, so
+        // there is no gap for the operator to re-squat into. That gap was R2-F1.
         vm.prank(beneficiary1);
-        vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
         bonding.requestUnbond(operator1, 2_000_000e18);
-
-        vm.prank(beneficiary1);
-        bonding.cancelUnbond(operator1); // beneficiary clears it
-        vm.prank(beneficiary1);
-        bonding.requestUnbond(operator1, 2_000_000e18); // and opens its own
+        assertEq(bonding.getBond(operator1).unbondingAmount, 2_000_000e18, "recall installed atomically");
 
         vm.prank(operator1);
         vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
-        bonding.cancelUnbond(operator1); // operator cannot squat back
+        bonding.cancelUnbond(operator1); // operator cannot cancel it
+
+        vm.prank(operator1);
+        vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
+        bonding.requestUnbond(operator1, 1); // nor take the slot back
 
         vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
         vm.prank(beneficiary1);
