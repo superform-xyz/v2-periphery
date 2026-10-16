@@ -300,7 +300,11 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     function cancelUnbond(address operator) external nonReentrant {
         BondRecord storage bond_ = _bonds[operator];
         if (bond_.unbondingAmount == 0) revert NO_PENDING_UNBOND();
-        _onlyOperatorOrBeneficiary(bond_, operator);
+        // Beneficiary only. See the interface NatSpec for the reasoning: executeUnbond always
+        // pays the beneficiary, so cancelling decides whether the bond stays outstanding rather
+        // than who gets paid, and that is the payee's call. This is what makes the beneficiary's
+        // exit unilateral and what stops a dust request from trapping the single pending slot.
+        if (msg.sender != bond_.beneficiary) revert NOT_BENEFICIARY();
 
         uint256 amount = bond_.unbondingAmount;
 

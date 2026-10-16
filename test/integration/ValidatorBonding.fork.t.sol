@@ -680,7 +680,7 @@ contract ValidatorBondingForkTest is Test {
     }
 
     /// @notice P3-4: Operator cancels foundation-initiated unbond — real sUP
-    function test_fork_P3_4_operatorCancelsFoundationUnbond() public {
+    function test_fork_operatorCannotCancelFoundationRecall() public {
         vm.prank(operator1);
         bonding.approveBondFor(foundation, foundation, delegateKey1);
 
@@ -698,14 +698,22 @@ contract ValidatorBondingForkTest is Test {
 
         assertEq(bonding.getBond(operator1).unbondingInitiator, foundation);
 
-        // Operator cancels the foundation-initiated unbond
+        // The operator cannot cancel the Foundation's recall: this is the whole point of the
+        // beneficiary-only rule, against the real sUP vault rather than a mock.
         vm.prank(operator1);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
         bonding.cancelUnbond(operator1);
 
         IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
-        assertEq(record.unbondingAmount, 0);
-        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
-        assertTrue(bonding.isBonded(operator1));
+        assertEq(record.unbondingAmount, bondedAmount, "the Foundation's recall survives");
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Unbonding));
+
+        // and it completes, paying the Foundation its principal back
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        uint256 before = sup.balanceOf(foundation);
+        vm.prank(foundation);
+        bonding.executeUnbond(operator1);
+        assertEq(sup.balanceOf(foundation) - before, bondedAmount, "Foundation recovered its loan");
     }
 
     /*//////////////////////////////////////////////////////////////

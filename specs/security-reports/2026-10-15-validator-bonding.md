@@ -16,13 +16,15 @@ coding standards, external exploit-precedent research)
 | Severity | Count | Fixed here | Blocks merge |
 |---|---|---|---|
 | P0 Critical | 0 | — | — |
-| P1 High | 2 | 1 | yes |
+| P1 High | 2 | 2 | yes |
 | P2 Medium | 4 | 2 | no |
 | P3 Low | 5 | 1 | no |
 
-**Verdict: FAIL pending one decision.** No P0. Of the two P1s, the reported `bondFor` redirect is
-fixed. The second, `cancelUnbond` not being initiator-restricted, is a conflict between two prior
-decisions and needs an owner, not a patch.
+**Verdict: PASS.** No P0, and both P1s are fixed: the reported `bondFor` redirect, and the
+unrestricted `cancelUnbond` that left a lender without a unilateral exit. What remains is one P2
+on delegate-key rotation, one on a slash resetting a counterparty's exit clock, four P3s and three
+design notes, none of which block the merge. The operational gate before any Foundation funding is
+retiring the superseded deployment, not a code change.
 
 ## Fixed in this branch
 
@@ -71,46 +73,38 @@ transposition would compile and still pass the new equality check. Also clears a
 `cancelProposedChange` NatSpec claimed governor-only; the implementation requires the admin role
 for the timelock key. The slash rounding comment named the wrong party.
 
+### [H-2] `cancelUnbond` was not restricted, so the beneficiary had no unilateral exit — FIXED
+Either party could cancel the other's unbond, immediately and repeatedly, while execute had to
+wait out the cooldown. The canceller therefore always got the last word, and an uncooperative
+operator could block a lender's recall indefinitely for one transaction per round. The spec says
+the arrangement "ensures the Foundation (as beneficiary) can pull back a loan without needing the
+operator's cooperation"; it did not.
+
+A companion problem constrained the obvious fixes. `requestUnbond` rejects a second request while
+one is pending, so a 1 wei request parks the only slot. Open cancellation was the sole escape from
+that squat, which is why restricting cancellation to the initiator would have converted griefing
+into a hard block, and why a no-cancel window near the deadline does not help either: neither gives
+the other party a way to clear an occupied slot.
+
+**Resolved by gating cancellation on the beneficiary alone.** The reasoning starts from
+`executeUnbond`, which always pays `bond_.beneficiary` whoever requested or executed it. Both
+parties' requests therefore send funds to the same address: an operator's request is a repayment, a
+beneficiary's is a recall, and neither party can route money to itself by requesting. Cancelling is
+consequently not a claim on the funds but a decision about whether the bond stays outstanding, and
+that belongs to the payee. Gating it there closes both halves at once:
+
+- the operator cannot veto a recall, so the beneficiary's exit is genuinely unilateral;
+- a squat is survivable, since the beneficiary can clear any pending request and open its own, and
+  the operator cannot clear that one back out;
+- the operator keeps its repayment route, because its own request still matures and still pays the
+  beneficiary, it simply cannot cancel one;
+- a self-bond is unaffected, the two addresses being the same.
+
+Reverts `NOT_BENEFICIARY`. This supersedes two earlier positions: the original initiator-only rule,
+and P3-4 from the 2026-05-11 review which broadened cancellation to either party. Externally this
+was bounty finding #121.
+
 ## Open — needs a decision, not a patch
-
-### [H-2] `cancelUnbond` is not initiator-restricted
-`src/ValidatorBonding.sol`, cancel path. Either party can cancel the other's unbond, immediately
-and repeatedly, while execute must wait for the deadline. The canceller therefore always gets the
-last word.
-
-This breaks the stated purpose of the beneficiary mechanism. The spec says the arrangement "ensures
-the Foundation (as beneficiary) can pull back a loan without needing the operator's cooperation".
-It does not. An uncooperative operator can block the lender's exit indefinitely for the cost of one
-transaction per round, leaving a governance slash as the only recovery — the punishment path used
-to return capital.
-
-The conflict is documented on both sides. The spec requires initiator-only and names this exact
-vector as the reason. The May 11 review's P3-4 recommended allowing both parties, which is what
-shipped. A third spec still defines a `NOT_UNBOND_INITIATOR` error that does not exist.
-
-Three options, in rough order of cost:
-1. Reinstate initiator-only. Matches the spec, makes `unbondingInitiator` load-bearing, and
-   reintroduces exactly the concern P3-4 raised.
-2. Let each party cancel only its own request, and refuse cancel inside a short window before the
-   deadline so it cannot be used purely to reset a counterparty's clock. **Insufficient on its own,
-   per review of PR #343:** a no-cancel window still gives the other party no way to clear or
-   replace an occupied slot, so the dust squat survives. Pairing it with per-party request slots,
-   or an atomic authorised superseding exit, is what actually closes both. Either needs a fresh
-   accounting and liveness review.
-3. Keep the open cancel, accept that the lender's remedy is a slash, and correct all three
-   documents plus drop the now-dead field.
-
-Current behaviour is pinned by `test_cancelGriefing_counterpartyCanBlockExitIndefinitely`, which is
-written to be inverted if option 1 or 2 is taken. Externally this is bounty finding #121.
-
-### [H-2a] The single pending-unbond slot is squattable, which constrains the H-2 fix
-Either party can park the one request slot with a 1 wei `requestUnbond`, and the other then cannot
-start its own exit at all. Today the counterparty escapes only because cancel is open to both.
-
-That makes the obvious fix for H-2 wrong on its own: restricting cancel to the initiator converts
-the griefing into a hard block. Any resolution has to solve both at once, for example per-party
-request slots, or cancel-your-own-request combined with a no-cancel window before the deadline.
-Pinned by `test_cancelGriefing_singleSlotIsSquattableByEitherParty`.
 
 ### [M-3] `updateDelegateKey` has the same last-write-wins shape
 The spec justifies beneficiary access as a remedy for a compromised operator key. The function is
@@ -141,8 +135,11 @@ later at a chosen moment. A grace window would let stale proposals lapse instead
 live options.
 
 ### [L-5] `unbondingInitiator` is a storage slot nothing reads
-Resolved either way by H-2: option 1 or 2 makes it load-bearing, option 3 means it should move to
-the event.
+Now definitively dead: H-2 gates cancellation on the beneficiary rather than the initiator, so
+nothing on-chain will ever read this field. Dropping it saves a slot and roughly 20k gas per
+`requestUnbond`, and the initiator is better carried on `UnbondRequested` for observability. Left
+in place here because removing a struct field changes the storage layout and is worth its own
+change rather than riding along with a security fix.
 
 ## Design notes, not defects
 
@@ -193,10 +190,10 @@ execution.
 
 | Suite | Before | After |
 |---|---|---|
-| Unit | 188 | 196 |
+| Unit | 188 | 199 |
 | Invariant | none | 8 |
 | Fork | 21 | 21 |
-| Full unit sweep | 1267 | 1283 |
+| Full unit sweep | 1267 | 1286 |
 
 `test/unit/ValidatorBonding.invariant.t.sol` is new. A handler random-walks the full lifecycle and
 runs two adversarial actions, a `bondFor` redirect attempt and third-party writes against every

@@ -260,7 +260,8 @@ contract BondingHandler is Test {
             return;
         }
 
-        // cancel from EITHER party, which is the behaviour the open-cancel finding is about
+        // Cancel is beneficiary-only, so half these attempts are the operator being refused.
+        // Both outcomes are wanted: the refusal exercises the gate, the success the happy path.
         vm.prank(seed % 4 < 2 ? op : r.beneficiary);
         try bonding.cancelUnbond(op) {
             ++ghost_cancelled;

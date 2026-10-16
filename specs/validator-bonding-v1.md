@@ -64,7 +64,8 @@ struct BondRecord {
     address delegateKey;         // Validator's signing key (for off-chain coordination)
     uint256 unbondingDeadline;   // Timestamp after which executeUnbond succeeds. 0 = no pending unbond.
     uint256 unbondingAmount;     // Amount being unbonded (locked portion of `amount`)
-    address unbondingInitiator;  // Who called requestUnbond (only they can cancelUnbond)
+    address unbondingInitiator;  // Who called requestUnbond. Observability only; cancellation is
+                                 // gated on the beneficiary, so nothing reads this on-chain.
     ValidatorStatus status;
 }
 
@@ -139,11 +140,17 @@ All external functions must validate:
 |----------|--------|-------------|
 | `requestUnbond(uint256 amount)` | Operator OR beneficiary | Start unbonding. Partial or full. |
 | `executeUnbond()` | Operator OR beneficiary | After unbonding deadline, sends sUP to `beneficiary`. |
-| `cancelUnbond()` | Unbond initiator only | Cancel pending unbond, re-bond tokens. |
+| `cancelUnbond(address operator)` | Beneficiary only | Cancel pending unbond, re-bond tokens. |
 
 Both the operator and beneficiary can initiate unbonding and execute it. This ensures the Foundation (as beneficiary) can pull back a loan without needing the operator's cooperation. The Foundation should notify the operator off-chain as a courtesy, but the contract does not enforce this.
 
-**`cancelUnbond()` is restricted to the initiator** (whoever called `requestUnbond`). This prevents a griefing vector where one party repeatedly cancels the other's unbond to reset the cooldown.
+**`cancelUnbond()` is restricted to the beneficiary.** The reasoning starts from `executeUnbond`, which always pays `beneficiary` whoever requested or executed it. Both parties' requests therefore send funds to the same address: an operator's request is a repayment, a beneficiary's is a recall, and neither party can route money to itself by requesting. Cancelling is consequently not a claim on the funds but a decision about whether the bond stays outstanding, and that decision belongs to the payee.
+
+This is what makes the beneficiary's exit genuinely unilateral, which the Foundation-loan model depends on: the operator cannot veto a recall. It also defuses the single-slot problem. `requestUnbond` rejects a second request while one is pending, so a 1 wei request parks the only slot; because the beneficiary can clear any pending request and the operator cannot clear the beneficiary's, a squat is survivable rather than a trap.
+
+The operator keeps its repayment route, since its own request still matures and still pays the beneficiary. It simply cannot cancel one. In a self-bond the operator and beneficiary are the same address, so nothing changes.
+
+Two earlier positions are superseded. The original design restricted cancellation to the initiator, which stops the mutual-reset griefing but leaves no way to clear an occupied slot. The 2026-05-11 review's P3-4 then broadened cancellation to either party, which clears slots but hands the operator a veto over the lender's exit. Gating on the beneficiary closes both.
 
 **`requestUnbond()` logic:**
 1. `msg.sender == operator || msg.sender == beneficiary`
@@ -167,7 +174,7 @@ Both the operator and beneficiary can initiate unbonding and execute it. This en
 8. Emits `UnbondExecuted(operator, beneficiary, unbondingAmount)`
 
 **`cancelUnbond()` logic:**
-1. `msg.sender == bond.unbondingInitiator` — only the party who requested can cancel
+1. `msg.sender == bond.beneficiary` — reverts `NOT_BENEFICIARY` otherwise
 2. Resets `unbondingAmount = 0`, `unbondingDeadline = 0`, `unbondingInitiator = address(0)`
 3. If status was `Unbonding` (full unbond): status = `Bonded`
 4. Emits `UnbondCancelled(operator, amount)`

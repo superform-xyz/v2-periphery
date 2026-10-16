@@ -664,7 +664,7 @@ contract ValidatorBondingTest is Test {
 
         // Random third party cannot cancel
         vm.prank(operator2);
-        vm.expectRevert(IValidatorBonding.NOT_OPERATOR_OR_BENEFICIARY.selector);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
         bonding.cancelUnbond(operator1);
     }
 
@@ -1482,7 +1482,7 @@ contract ValidatorBondingTest is Test {
         assertEq(record.unbondingAmount, postSlashUnbonding);
 
         // Operator cancels the unbond
-        vm.prank(operator1);
+        vm.prank(beneficiary1); // cancellation is beneficiary-only
         bonding.cancelUnbond(operator1);
 
         // After cancel: unbonding cleared, total bond = 2.4M, status = Bonded
@@ -1824,7 +1824,7 @@ contract ValidatorBondingTest is Test {
 
         // Unrelated party tries to cancel — should get NOT_OPERATOR_OR_BENEFICIARY
         vm.prank(treasury);
-        vm.expectRevert(IValidatorBonding.NOT_OPERATOR_OR_BENEFICIARY.selector);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
         bonding.cancelUnbond(operator1);
     }
 
@@ -2513,91 +2513,102 @@ contract ValidatorBondingTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-       CANCEL GRIEFING — current behaviour, differs from validator-bonding-v1.md
+       BENEFICIARY-ONLY CANCEL — the beneficiary's exit is unilateral
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice The single pending-unbond slot is occupiable by either party.
-    /// @dev Read together with the griefing test below, this is the constraint on any fix.
-    ///      requestUnbond reverts PENDING_UNBOND_EXISTS while a request is live, so a 1 wei
-    ///      request parks the slot. Today the counterparty escapes only because cancelUnbond is
-    ///      open to both. Restricting cancel to unbondingInitiator -- the obvious fix for the
-    ///      griefing -- would turn this squat into a hard block on the other party's exit. Any
-    ///      resolution has to address both at once, for example per-party request slots, or
-    ///      cancel-own-request plus a no-cancel window before the deadline.
-    function test_cancelGriefing_singleSlotIsSquattableByEitherParty() public {
+    /// @notice The lender's recall completes; the operator has no veto.
+    /// @dev This is the property validator-bonding-v1.md promises and the code previously failed
+    ///      to keep. With cancellation open to either party the operator always got the last word,
+    ///      since cancel is immediate while execute must wait out the cooldown.
+    function test_cancel_lenderRecallCannotBeBlockedByTheOperator() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        // the operator can try every round and never lands one
+        for (uint256 i; i < 3; ++i) {
+            vm.prank(operator1);
+            vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
+            bonding.cancelUnbond(operator1);
+            vm.warp(block.timestamp + 1 days);
+        }
+
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        uint256 balanceBefore = supToken.balanceOf(beneficiary1);
+        vm.prank(beneficiary1);
+        bonding.executeUnbond(operator1);
+        assertEq(supToken.balanceOf(beneficiary1) - balanceBefore, 2_000_000e18, "lender recovered principal");
+    }
+
+    /// @notice A dust request parks the single slot, but no longer traps the beneficiary.
+    /// @dev requestUnbond rejects a second request while one is pending, so the slot is still
+    ///      occupiable. What changed is the escape: the beneficiary can clear any request and the
+    ///      operator cannot clear the beneficiary's, so a squat costs a transaction rather than
+    ///      the exit. This is why initiator-only cancellation would not have been enough.
+    function test_cancel_dustSquatIsSurvivable() public {
         _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
 
         vm.prank(operator1);
-        bonding.requestUnbond(operator1, 1); // park the slot with dust
+        bonding.requestUnbond(operator1, 1); // squat
 
         vm.prank(beneficiary1);
         vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
         bonding.requestUnbond(operator1, 2_000_000e18);
 
-        // the escape hatch is the open cancel, which is also the griefing vector
         vm.prank(beneficiary1);
-        bonding.cancelUnbond(operator1);
+        bonding.cancelUnbond(operator1); // beneficiary clears it
         vm.prank(beneficiary1);
-        bonding.requestUnbond(operator1, 2_000_000e18);
-        assertEq(bonding.getBond(operator1).unbondingAmount, 2_000_000e18);
+        bonding.requestUnbond(operator1, 2_000_000e18); // and opens its own
 
         vm.prank(operator1);
-        bonding.cancelUnbond(operator1);
-        assertEq(bonding.getBond(operator1).unbondingAmount, 0, "and straight back round");
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
+        bonding.cancelUnbond(operator1); // operator cannot squat back
+
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        vm.prank(beneficiary1);
+        bonding.executeUnbond(operator1);
+        assertEq(bonding.getBond(operator1).amount, 0);
     }
 
-    /// @notice Either party can cancel the other's unbond, indefinitely.
-    /// @dev The spec says cancelUnbond is restricted to whoever called requestUnbond, and gives
-    ///      the reason: "This prevents a griefing vector where one party repeatedly cancels the
-    ///      other's unbond to reset the cooldown." The implementation instead follows the
-    ///      2026-05-11 review's P3-4 recommendation and allows operator OR beneficiary, and the
-    ///      interface NatSpec records unbondingInitiator as "observability only, not
-    ///      access-controlled". The field is written on every request and never read.
-    ///
-    ///      This test pins the behaviour that actually ships: a beneficiary can block an
-    ///      operator's exit forever, and the operator can do the same to the beneficiary. It is
-    ///      NOT an endorsement. If the spec's anti-griefing property is wanted, gate cancelUnbond
-    ///      on unbondingInitiator and this test should be inverted.
-    function test_cancelGriefing_counterpartyCanBlockExitIndefinitely() public {
+    /// @notice The operator keeps its repayment route: its own request matures and pays the lender
+    function test_cancel_operatorCanStillRepayViaItsOwnRequest() public {
         _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
 
-        // The operator tries to exit three times; the beneficiary cancels each attempt and the
-        // cooldown restarts from zero every round.
-        for (uint256 round; round < 3; ++round) {
-            vm.prank(operator1);
-            bonding.requestUnbond(operator1, 2_000_000e18);
-            assertEq(bonding.getBond(operator1).unbondingInitiator, operator1, "operator initiated");
-
-            vm.warp(block.timestamp + bonding.unbondingPeriod() - 1 hours); // one hour short
-
-            vm.prank(beneficiary1);
-            bonding.cancelUnbond(operator1);
-            assertEq(bonding.getBond(operator1).unbondingAmount, 0, "exit cancelled by the counterparty");
-            assertEq(bonding.getBond(operator1).unbondingDeadline, 0, "cooldown reset");
-        }
-
-        // The bond is untouched throughout: griefing delays the exit, it never moves value.
-        assertEq(bonding.getBond(operator1).amount, 2_000_000e18);
-        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
-
-        // Symmetric: the operator can block the beneficiary's exit the same way.
-        vm.prank(beneficiary1);
-        bonding.requestUnbond(operator1, 2_000_000e18);
-        vm.prank(operator1);
-        bonding.cancelUnbond(operator1);
-        assertEq(bonding.getBond(operator1).unbondingAmount, 0);
-
-        // An UNINTERRUPTED attempt completes, so nothing is locked by the code itself. Against an
-        // adversarial counterparty, though, there is no uninterrupted attempt: cancel is immediate
-        // while execute needs the deadline, so the canceller always gets the last word. For a
-        // Foundation loan that means the lender cannot pull its own principal back without a
-        // governance slash, which is the opposite of what validator-bonding-v1.md:144 promises.
         vm.prank(operator1);
         bonding.requestUnbond(operator1, 2_000_000e18);
         vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        uint256 balanceBefore = supToken.balanceOf(beneficiary1);
         vm.prank(operator1);
         bonding.executeUnbond(operator1);
-        assertEq(supToken.balanceOf(beneficiary1), 10_000_000e18 + 2_000_000e18 - 2_000_000e18 + 2_000_000e18);
+
+        assertEq(supToken.balanceOf(beneficiary1) - balanceBefore, 2_000_000e18, "repayment reaches the lender");
+    }
+
+    /// @notice A self-bond is unaffected, since operator and beneficiary are the same address
+    function test_cancel_selfBondStillControlsItsOwnExit() public {
+        address solo = makeAddr("solo");
+        supToken.mint(solo, 5_000_000e18);
+        vm.startPrank(solo);
+        supToken.approve(address(bonding), type(uint256).max);
+        bonding.bond(2_000_000e18, solo, delegateKey1);
+        bonding.requestUnbond(solo, 2_000_000e18);
+        bonding.cancelUnbond(solo);
+        vm.stopPrank();
+
+        assertEq(bonding.getBond(solo).unbondingAmount, 0, "self-bonder cancels its own request");
+        assertEq(uint8(bonding.getBond(solo).status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+    }
+
+    /// @notice A third party still cannot cancel, and now gets the precise error
+    function test_cancel_thirdPartyRevertsWithNotBeneficiary() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        vm.prank(operator2); // unrelated third party
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
+        bonding.cancelUnbond(operator1);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -2644,8 +2655,9 @@ contract ValidatorBondingTest is Test {
 
         vm.startPrank(operator1);
         bonding.requestUnbond(operator1, residual);
-        bonding.cancelUnbond(operator1);
         vm.stopPrank();
+        vm.prank(beneficiary1); // cancellation is beneficiary-only
+        bonding.cancelUnbond(operator1);
 
         assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
         assertEq(bonding.getOperators().length, 1, "Bonded operator must be enumerable");
@@ -2668,7 +2680,10 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(operator1);
         bonding.requestUnbond(operator1, 2_000_000e18);
         assertEq(bonding.getOperators().length, 1, "no duplicate after request");
+        vm.stopPrank();
+        vm.prank(beneficiary1); // cancellation is beneficiary-only
         bonding.cancelUnbond(operator1);
+        vm.startPrank(operator1);
         assertEq(bonding.getOperators().length, 1, "no duplicate after cancel");
         bonding.requestUnbond(operator1, 2_000_000e18);
         vm.stopPrank();
@@ -2780,23 +2795,22 @@ contract ValidatorBondingTest is Test {
               EDGE CASE TESTS — P3-4: cancelUnbond by operator OR beneficiary
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Operator can cancel unbond initiated by beneficiary
-    function test_P3_4_operatorCancelsUnbondInitiatedByBeneficiary() public {
+    /// @notice Operator CANNOT cancel an unbond initiated by the beneficiary
+    /// @dev Inverted from the P3-4 behaviour. Letting the operator cancel here was the veto that
+    ///      made the beneficiary's exit non-unilateral; cancellation is now beneficiary-only.
+    function test_P3_4_operatorCannotCancelUnbondInitiatedByBeneficiary() public {
         _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
 
-        // Beneficiary initiates unbond
         vm.prank(beneficiary1);
         bonding.requestUnbond(operator1, 2_000_000e18);
 
-        // Operator cancels
         vm.prank(operator1);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
         bonding.cancelUnbond(operator1);
 
         IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
-        assertEq(record.unbondingAmount, 0);
-        assertEq(record.unbondingDeadline, 0);
-        assertEq(record.unbondingInitiator, address(0));
-        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+        assertEq(record.unbondingAmount, 2_000_000e18, "the recall survives");
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Unbonding));
     }
 
     /// @notice Beneficiary can cancel unbond initiated by operator
@@ -2827,7 +2841,7 @@ contract ValidatorBondingTest is Test {
         bonding.requestUnbond(operator1, 2_000_000e18);
 
         vm.prank(treasury);
-        vm.expectRevert(IValidatorBonding.NOT_OPERATOR_OR_BENEFICIARY.selector);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
         bonding.cancelUnbond(operator1);
     }
 

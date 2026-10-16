@@ -34,8 +34,8 @@ interface IValidatorBonding is IAccessControl {
     ///        but amount < minimumBond. Always use isBonded() for active-bond checks.
     /// @param delegateKey Validator's signing key for off-chain coordination
     /// @param unbondingAmount Portion of amount being unbonded
-    /// @param unbondingInitiator Who called requestUnbond (observability only — not access-controlled;
-    ///        both operator and beneficiary can cancel regardless of initiator)
+    /// @param unbondingInitiator Who called requestUnbond. Observability only: cancellation is
+    ///        gated on the beneficiary, not on this field, so nothing reads it on-chain.
     struct BondRecord {
         uint256 amount; // slot 0
         address beneficiary; // slot 1: 20 bytes
@@ -78,6 +78,11 @@ interface IValidatorBonding is IAccessControl {
     error UNBONDING_NOT_COMPLETE();
     /// @notice Thrown when caller is not the operator or beneficiary
     error NOT_OPERATOR_OR_BENEFICIARY();
+
+    /// @notice Thrown when someone other than the beneficiary tries to cancel a pending unbond.
+    ///         Cancelling decides whether the bond stays outstanding, and since executeUnbond
+    ///         always pays the beneficiary, that decision belongs to the payee alone.
+    error NOT_BENEFICIARY();
     /// @notice Thrown when trying to slash an operator with zero bond
     error NOTHING_TO_SLASH();
     /// @notice Thrown when providing an invalid minimum bond value (out of bounds)
@@ -268,7 +273,16 @@ interface IValidatorBonding is IAccessControl {
     function executeUnbond(address operator) external;
 
     /// @notice Cancel a pending unbond
-    /// @dev Callable by operator or beneficiary
+    /// @dev BENEFICIARY ONLY. executeUnbond always pays bond_.beneficiary whoever requested or
+    ///      executed it, so an operator's request is a repayment and a beneficiary's is a recall,
+    ///      and both send funds to the same address. Cancelling is therefore not a claim on the
+    ///      money but a decision about whether the bond stays outstanding, which belongs to the
+    ///      payee. Restricting it here is what gives the beneficiary a unilateral exit the
+    ///      operator cannot veto, and what keeps a dust request from trapping the slot: the
+    ///      beneficiary can always clear a pending request and open its own, and the operator
+    ///      cannot clear that one back out. The operator keeps its repayment route, since its own
+    ///      request still matures and still pays the beneficiary. In a self-bond the two
+    ///      addresses coincide, so nothing changes.
     /// @param operator The operator whose unbond to cancel
     function cancelUnbond(address operator) external;
 
