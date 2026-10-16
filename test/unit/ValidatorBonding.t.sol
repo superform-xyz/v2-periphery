@@ -116,7 +116,7 @@ contract ValidatorBondingTest is Test {
 
         vm.expectEmit(true, true, false, true);
         emit IValidatorBonding.Bonded(operator1, beneficiary1, beneficiary1, delegateKey1, MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
 
         IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
@@ -134,7 +134,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(beneficiary1);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -143,7 +143,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(operator1);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(address(0), MINIMUM_BOND);
+        bonding.bondFor(address(0), MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -232,7 +232,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -244,7 +244,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator2, MINIMUM_BOND);
+        bonding.bondFor(operator2, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -262,13 +262,13 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
 
         // beneficiary1 can bond
         vm.startPrank(beneficiary1);
         supToken.approve(address(bonding), MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
 
         assertTrue(bonding.isBonded(operator1));
@@ -483,9 +483,10 @@ contract ValidatorBondingTest is Test {
         bonding.requestUnbond(operator1, 0);
     }
 
+    /// @dev Uses a THIRD-PARTY beneficiary on purpose. The original version self-bonded, so
+    ///      operator == beneficiary and the second request is now a legitimate supersession.
     function test_requestUnbond_revertsPendingExists() public {
-        uint256 bondAmount = 2_000_000e18;
-        _bondOperator(operator1, operator1, delegateKey1, bondAmount);
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
 
         vm.startPrank(operator1);
         bonding.requestUnbond(operator1, 500_000e18);
@@ -493,6 +494,18 @@ contract ValidatorBondingTest is Test {
         vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
         bonding.requestUnbond(operator1, 500_000e18);
         vm.stopPrank();
+    }
+
+    /// @notice A self-bonder is its own beneficiary, so it may supersede its own request
+    function test_requestUnbond_selfBonderMaySupersedeItsOwnRequest() public {
+        _bondOperator(operator1, operator1, delegateKey1, 2_000_000e18);
+
+        vm.startPrank(operator1);
+        bonding.requestUnbond(operator1, 500_000e18);
+        bonding.requestUnbond(operator1, 900_000e18);
+        vm.stopPrank();
+
+        assertEq(bonding.getBond(operator1).unbondingAmount, 900_000e18, "superseded in place");
     }
 
     function test_requestUnbond_revertsPartialBelowMinimum() public {
@@ -664,7 +677,7 @@ contract ValidatorBondingTest is Test {
 
         // Random third party cannot cancel
         vm.prank(operator2);
-        vm.expectRevert(IValidatorBonding.NOT_OPERATOR_OR_BENEFICIARY.selector);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
         bonding.cancelUnbond(operator1);
     }
 
@@ -1270,7 +1283,7 @@ contract ValidatorBondingTest is Test {
         // Foundation bonds for operator
         vm.startPrank(beneficiary1);
         supToken.approve(address(bonding), 2_000_000e18);
-        bonding.bondFor(operator1, 2_000_000e18);
+        bonding.bondFor(operator1, 2_000_000e18, beneficiary1, delegateKey1);
         vm.stopPrank();
 
         // Governor slashes
@@ -1482,7 +1495,7 @@ contract ValidatorBondingTest is Test {
         assertEq(record.unbondingAmount, postSlashUnbonding);
 
         // Operator cancels the unbond
-        vm.prank(operator1);
+        vm.prank(beneficiary1); // cancellation is beneficiary-only
         bonding.cancelUnbond(operator1);
 
         // After cancel: unbonding cleared, total bond = 2.4M, status = Bonded
@@ -1824,7 +1837,7 @@ contract ValidatorBondingTest is Test {
 
         // Unrelated party tries to cancel — should get NOT_OPERATOR_OR_BENEFICIARY
         vm.prank(treasury);
-        vm.expectRevert(IValidatorBonding.NOT_OPERATOR_OR_BENEFICIARY.selector);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
         bonding.cancelUnbond(operator1);
     }
 
@@ -2310,7 +2323,7 @@ contract ValidatorBondingTest is Test {
         // Bonder executes bondFor
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, customBeneficiary, customDelegate);
         vm.stopPrank();
 
         // Verify operator's bond has the pre-committed values
@@ -2363,7 +2376,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, ben2, dk2);
         vm.stopPrank();
     }
 
@@ -2384,7 +2397,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -2416,7 +2429,7 @@ contract ValidatorBondingTest is Test {
         vm.startPrank(operator2);
         supToken.approve(address(bonding), MINIMUM_BOND);
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
     }
 
@@ -2430,31 +2443,531 @@ contract ValidatorBondingTest is Test {
 
         vm.expectEmit(true, true, false, true);
         emit IValidatorBonding.Bonded(operator1, beneficiary1, bonder, delegateKey1, MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
         vm.stopPrank();
+    }
+
+    /*//////////////////////////////////////////////////////////////
+       UNBOND FIELD HYGIENE — stale deadline/initiator after a consuming slash
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice A slash that consumes the unbonding bucket exactly must still clear the unbonding
+    ///         fields.
+    /// @dev The reset used to be guarded on the post-decrement unbondingAmount. For a full slash
+    ///      of an Unbonding record the proportional split consumes the whole bucket, so the guard
+    ///      read zero, skipped the reset, and left a deadline and initiator on a record with no
+    ///      pending unbond. The interface documents deadline 0 as "no pending unbond", and this
+    ///      contract is explicitly read by off-chain tooling, so the dirt was observable.
+    function test_slash_consumingUnbondBucketStillClearsUnbondFields() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        assertGt(bonding.getBond(operator1).unbondingDeadline, 0);
+        assertEq(bonding.getBond(operator1).unbondingInitiator, operator1);
+
+        vm.prank(governor);
+        bonding.slash(operator1, 2_000_000e18, treasury);
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertEq(r.amount, 0);
+        assertEq(r.unbondingAmount, 0);
+        assertEq(r.unbondingDeadline, 0, "deadline must be cleared");
+        assertEq(r.unbondingInitiator, address(0), "initiator must be cleared");
+    }
+
+    /// @notice The ceil-rounding case: a tiny unbonding slice is consumed whole by any slash, so
+    ///         the bucket empties while the bond stays far above the minimum. The sentinel reset
+    ///         must therefore not be nested inside the below-minimum branch. Found by the
+    ///         invariant suite after the first, narrower fix.
+    function test_slash_ceilConsumesTinySliceWithoutDroppingBelowMinimum() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 3_000_000e18);
+
+        // a 1 wei partial unbond: remaining stays far above minimumBond
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+        assertGt(bonding.getBond(operator1).unbondingDeadline, 0);
+
+        // any slash takes ceil(amount * 1 / total) == 1, consuming the slice entirely
+        vm.prank(governor);
+        bonding.slash(operator1, 1_000e18, treasury);
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertGe(r.amount, bonding.minimumBond(), "still well above the minimum");
+        assertEq(uint8(r.status), uint8(IValidatorBonding.ValidatorStatus.Bonded), "still Bonded");
+        assertEq(r.unbondingAmount, 0, "slice consumed by ceil");
+        assertEq(r.unbondingDeadline, 0, "deadline must be cleared even above the minimum");
+        assertEq(r.unbondingInitiator, address(0), "initiator must be cleared even above the minimum");
+
+        // the record is clean enough to start a fresh unbond immediately
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1_000_000e18);
+        assertEq(bonding.getBond(operator1).unbondingAmount, 1_000_000e18);
+    }
+
+    /// @notice A new bond never inherits a previous tenure's unbonding fields
+    function test_bond_startsFromCleanUnbondFieldsAfterAConsumingSlash() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        vm.prank(governor);
+        bonding.slash(operator1, 2_000_000e18, treasury);
+
+        // re-bond under a DIFFERENT beneficiary
+        vm.startPrank(operator1);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        bonding.bond(MINIMUM_BOND, beneficiary2, delegateKey2);
+        vm.stopPrank();
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertEq(r.beneficiary, beneficiary2);
+        assertEq(r.unbondingDeadline, 0, "fresh bond must not inherit a deadline");
+        assertEq(r.unbondingInitiator, address(0), "fresh bond must not inherit an initiator");
+        assertEq(r.unbondingAmount, 0);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+       BENEFICIARY-ONLY CANCEL — the beneficiary's exit is unilateral
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice The lender's recall completes; the operator has no veto.
+    /// @dev This is the property validator-bonding-v1.md promises and the code previously failed
+    ///      to keep. With cancellation open to either party the operator always got the last word,
+    ///      since cancel is immediate while execute must wait out the cooldown.
+    function test_cancel_lenderRecallCannotBeBlockedByTheOperator() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        // the operator can try every round and never lands one
+        for (uint256 i; i < 3; ++i) {
+            vm.prank(operator1);
+            vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
+            bonding.cancelUnbond(operator1);
+            vm.warp(block.timestamp + 1 days);
+        }
+
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        uint256 balanceBefore = supToken.balanceOf(beneficiary1);
+        vm.prank(beneficiary1);
+        bonding.executeUnbond(operator1);
+        assertEq(supToken.balanceOf(beneficiary1) - balanceBefore, 2_000_000e18, "lender recovered principal");
+    }
+
+    /// @notice R2-F1: the operator cannot re-squat between the beneficiary's two transactions.
+    /// @dev This is the sequence the first fix missed. Beneficiary-only cancel protects a recall
+    ///      once installed but does not let the beneficiary install one, because cancel and
+    ///      request are separate transactions. An operator re-requesting 1 wei in the gap blocked
+    ///      the recall forever. The earlier dust test hid it by placing the two calls back to
+    ///      back, which silently assumed an atomicity that does not exist on chain.
+    function test_cancel_operatorCannotResquatBetweenTheBeneficiarysTransactions() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        for (uint256 round; round < 5; ++round) {
+            vm.prank(operator1);
+            bonding.requestUnbond(operator1, 1); // squat
+
+            // the beneficiary no longer needs to clear first: one transaction supersedes
+            vm.prank(beneficiary1);
+            bonding.requestUnbond(operator1, 2_000_000e18);
+            assertEq(bonding.getBond(operator1).unbondingAmount, 2_000_000e18, "recall installed");
+
+            // and the operator cannot take the slot back
+            vm.prank(operator1);
+            vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
+            bonding.requestUnbond(operator1, 1);
+
+            vm.prank(beneficiary1);
+            bonding.cancelUnbond(operator1); // reset for the next round
+        }
+
+        // and a recall left alone completes
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        uint256 balanceBefore = supToken.balanceOf(beneficiary1);
+        vm.prank(beneficiary1);
+        bonding.executeUnbond(operator1);
+        assertEq(supToken.balanceOf(beneficiary1) - balanceBefore, 2_000_000e18, "lender recovered principal");
+    }
+
+    /// @notice Superseding a full request with a partial one returns the status to Bonded
+    function test_supersede_fullToPartialRestoresBondedStatus() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Unbonding));
+
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 1_000_000e18); // partial supersedes the full
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertEq(uint8(r.status), uint8(IValidatorBonding.ValidatorStatus.Bonded), "no longer fully exiting");
+        assertEq(r.unbondingAmount, 1_000_000e18);
+        assertEq(bonding.getOperators().length, 1, "still enumerable");
+    }
+
+    /// @notice Superseding a partial with a full moves to Unbonding and stays enumerable
+    function test_supersede_partialToFullSetsUnbonding() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1_000_000e18);
+
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertEq(uint8(r.status), uint8(IValidatorBonding.ValidatorStatus.Unbonding));
+        assertEq(r.unbondingAmount, 2_000_000e18);
+        assertEq(bonding.getOperators().length, 1);
+    }
+
+    /// @notice Supersession restarts the cooldown and re-stamps the initiator
+    function test_supersede_restartsCooldownAndRecordsTheNewInitiator() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+        uint48 firstDeadline = bonding.getBond(operator1).unbondingDeadline;
+        assertEq(bonding.getBond(operator1).unbondingInitiator, operator1);
+
+        vm.warp(block.timestamp + 3 days);
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        IValidatorBonding.BondRecord memory r = bonding.getBond(operator1);
+        assertGt(r.unbondingDeadline, firstDeadline, "cooldown restarts from the supersession");
+        assertEq(r.unbondingInitiator, beneficiary1, "initiator is now the beneficiary");
+    }
+
+    /// @notice A supersession emits the cancellation before the new request, so an indexer never
+    ///         observes two live requests
+    function test_supersede_emitsCancelThenRequest() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+
+        vm.recordLogs();
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 cancelled = keccak256("UnbondCancelled(address,uint256)");
+        bytes32 requested = keccak256("UnbondRequested(address,uint256,uint256)");
+        uint256 cancelIdx = type(uint256).max;
+        uint256 requestIdx = type(uint256).max;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].topics[0] == cancelled) cancelIdx = i;
+            if (logs[i].topics[0] == requested) requestIdx = i;
+        }
+        assertTrue(cancelIdx != type(uint256).max, "supersession emits UnbondCancelled");
+        assertTrue(requestIdx != type(uint256).max, "and UnbondRequested");
+        assertLt(cancelIdx, requestIdx, "cancel must precede the new request");
+    }
+
+    /// @notice Only the beneficiary may supersede; the operator still cannot take an occupied slot
+    function test_supersede_operatorCannotSupersede() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        vm.prank(operator1);
+        vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
+        bonding.requestUnbond(operator1, 1);
+
+        // a third party cannot either, and fails on authorisation first
+        vm.prank(operator2);
+        vm.expectRevert(IValidatorBonding.NOT_OPERATOR_OR_BENEFICIARY.selector);
+        bonding.requestUnbond(operator1, 1);
+    }
+
+    /// @notice Supersession still respects the partial-unbond floor
+    function test_supersede_stillEnforcesMinimumBondOnPartials() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1);
+
+        vm.prank(beneficiary1);
+        vm.expectRevert(IValidatorBonding.BELOW_MINIMUM_BOND.selector);
+        bonding.requestUnbond(operator1, 1_500_000e18); // would leave 500k, under the 1M floor
+    }
+
+    /// @notice A dust request parks the single slot, but no longer traps the beneficiary.
+    /// @dev requestUnbond rejects a second request while one is pending, so the slot is still
+    ///      occupiable. What changed is the escape: the beneficiary can clear any request and the
+    ///      operator cannot clear the beneficiary's, so a squat costs a transaction rather than
+    ///      the exit. This is why initiator-only cancellation would not have been enough.
+    function test_cancel_dustSquatIsSurvivable() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 1); // squat
+
+        // One transaction, no clear-then-request dance: the beneficiary supersedes in place, so
+        // there is no gap for the operator to re-squat into. That gap was R2-F1.
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        assertEq(bonding.getBond(operator1).unbondingAmount, 2_000_000e18, "recall installed atomically");
+
+        vm.prank(operator1);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
+        bonding.cancelUnbond(operator1); // operator cannot cancel it
+
+        vm.prank(operator1);
+        vm.expectRevert(IValidatorBonding.PENDING_UNBOND_EXISTS.selector);
+        bonding.requestUnbond(operator1, 1); // nor take the slot back
+
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        vm.prank(beneficiary1);
+        bonding.executeUnbond(operator1);
+        assertEq(bonding.getBond(operator1).amount, 0);
+    }
+
+    /// @notice The operator keeps its repayment route: its own request matures and pays the lender
+    function test_cancel_operatorCanStillRepayViaItsOwnRequest() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        uint256 balanceBefore = supToken.balanceOf(beneficiary1);
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+
+        assertEq(supToken.balanceOf(beneficiary1) - balanceBefore, 2_000_000e18, "repayment reaches the lender");
+    }
+
+    /// @notice A self-bond is unaffected, since operator and beneficiary are the same address
+    function test_cancel_selfBondStillControlsItsOwnExit() public {
+        address solo = makeAddr("solo");
+        supToken.mint(solo, 5_000_000e18);
+        vm.startPrank(solo);
+        supToken.approve(address(bonding), type(uint256).max);
+        bonding.bond(2_000_000e18, solo, delegateKey1);
+        bonding.requestUnbond(solo, 2_000_000e18);
+        bonding.cancelUnbond(solo);
+        vm.stopPrank();
+
+        assertEq(bonding.getBond(solo).unbondingAmount, 0, "self-bonder cancels its own request");
+        assertEq(uint8(bonding.getBond(solo).status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+    }
+
+    /// @notice A third party still cannot cancel, and now gets the precise error
+    function test_cancel_thirdPartyRevertsWithNotBeneficiary() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        vm.prank(beneficiary1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+
+        vm.prank(operator2); // unrelated third party
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
+        bonding.cancelUnbond(operator1);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+       REGISTRY / STATUS CONSISTENCY — found by the invariant suite
+    //////////////////////////////////////////////////////////////*/
+
+    /// @dev Setup for the desync: a partial slash below the minimum leaves the operator Unbonded
+    ///      with a residual balance and removes it from the registry.
+    function _slashIntoResidual() internal returns (uint256 residual) {
+        vm.startPrank(operator1);
+        supToken.approve(address(bonding), type(uint256).max);
+        bonding.bond(MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+        assertEq(bonding.getOperators().length, 1);
+
+        vm.prank(governor);
+        bonding.slash(operator1, MINIMUM_BOND / 2, treasury);
+
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Unbonded));
+        residual = bonding.getBond(operator1).amount;
+        assertGt(residual, 0, "residual remains");
+        assertEq(bonding.getOperators().length, 0, "removed from the registry while Unbonded");
+    }
+
+    /// @notice Leaving the Unbonded state via requestUnbond must re-enter the registry.
+    /// @dev requestUnbond on an Unbonded-with-residual record sets status to Unbonding. It used to
+    ///      do so without re-adding the operator, leaving a live Unbonding record that no
+    ///      enumeration surfaced.
+    function test_registry_requestUnbondFromResidualReAddsOperator() public {
+        uint256 residual = _slashIntoResidual();
+
+        vm.prank(operator1);
+        bonding.requestUnbond(operator1, residual);
+
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Unbonding));
+        assertEq(bonding.getOperators().length, 1, "Unbonding operator must be enumerable");
+        assertEq(bonding.getOperators()[0], operator1);
+    }
+
+    /// @notice The escalation: cancel then top up left a fully collateralised operator that
+    ///         isBonded() reported as bonded but neither enumeration returned.
+    function test_registry_cancelThenTopUpStaysEnumerable() public {
+        uint256 residual = _slashIntoResidual();
+
+        vm.startPrank(operator1);
+        bonding.requestUnbond(operator1, residual);
+        vm.stopPrank();
+        vm.prank(beneficiary1); // cancellation is beneficiary-only
+        bonding.cancelUnbond(operator1);
+
+        assertEq(uint8(bonding.getBond(operator1).status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+        assertEq(bonding.getOperators().length, 1, "Bonded operator must be enumerable");
+
+        vm.prank(operator1);
+        bonding.addBond(operator1, MINIMUM_BOND);
+
+        assertTrue(bonding.isBonded(operator1));
+        assertEq(bonding.getOperators().length, 1);
+        address[] memory active = bonding.getActiveOperators();
+        assertEq(active.length, 1, "fully collateralised operator must appear in the active set");
+        assertEq(active[0], operator1);
+    }
+
+    /// @notice Re-adding is idempotent: a normal unbond cycle never duplicates the entry.
+    function test_registry_noDuplicateEntriesOnNormalCycle() public {
+        _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
+        assertEq(bonding.getOperators().length, 1);
+
+        vm.startPrank(operator1);
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        assertEq(bonding.getOperators().length, 1, "no duplicate after request");
+        vm.stopPrank();
+        vm.prank(beneficiary1); // cancellation is beneficiary-only
+        bonding.cancelUnbond(operator1);
+        vm.startPrank(operator1);
+        assertEq(bonding.getOperators().length, 1, "no duplicate after cancel");
+        bonding.requestUnbond(operator1, 2_000_000e18);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + bonding.unbondingPeriod() + 1);
+        vm.prank(operator1);
+        bonding.executeUnbond(operator1);
+        assertEq(bonding.getOperators().length, 0, "removed once fully exited");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+       BOND-FOR APPROVAL BINDING — operator cannot redirect a funded bond
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice The reported attack, now blocked.
+    /// @dev An operator used to be able to show a lender-as-beneficiary approval, let the lender
+    ///      verify it, then rewrite itself as beneficiary before the lender's transaction landed.
+    ///      bondFor read the beneficiary live and checked only the bonder, so the lender funded a
+    ///      bond owed to the operator. Because the beneficiary is immutable for the life of the
+    ///      bond, the lender could not repair it and was locked out of every unbond path.
+    function test_bondFor_operatorCannotRedirectFundedBondToItself() public {
+        // 1. Operator approves the lender as bonder, naming the lender as beneficiary.
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+        assertEq(bonding.getBondForApproval(operator1).beneficiary, beneficiary1, "what the lender verifies");
+
+        // 2. Before the lender's transaction lands, the operator rewrites the approval.
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, operator1, delegateKey1);
+
+        // 3. The lender funds the terms it agreed to and the call now reverts.
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        vm.expectRevert(IValidatorBonding.APPROVAL_MISMATCH.selector);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+
+        // 4. Nothing moved: no bond, no transfer, and the lender keeps its sUP.
+        assertFalse(bonding.isBonded(operator1));
+        assertEq(bonding.getBond(operator1).amount, 0);
+        assertEq(bonding.getBond(operator1).beneficiary, address(0));
+    }
+
+    /// @notice The same binding covers the delegate key, not just the beneficiary
+    function test_bondFor_revertsWhenOperatorRewritesDelegateKey() public {
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey2);
+
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        vm.expectRevert(IValidatorBonding.APPROVAL_MISMATCH.selector);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+    }
+
+    /// @notice Matching terms still fund normally and the bond is owed to the stated beneficiary
+    function test_bondFor_matchingTermsSucceedAndRecordTheStatedBeneficiary() public {
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+
+        IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
+        assertEq(record.beneficiary, beneficiary1, "bond is owed to the funder's chosen beneficiary");
+        assertEq(record.delegateKey, delegateKey1);
+        assertEq(record.amount, MINIMUM_BOND);
+    }
+
+    /// @notice The residual griefing path is a revert, never a redirection: an operator that
+    ///         revokes or rewrites costs the bonder gas, not principal
+    function test_bondFor_operatorRevocationOnlyCostsGas() public {
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+        vm.prank(operator1);
+        bonding.revokeBondForApproval();
+
+        uint256 balanceBefore = supToken.balanceOf(bonder);
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
+        vm.stopPrank();
+        assertEq(supToken.balanceOf(bonder), balanceBefore, "no principal moved");
+    }
+
+    /// @notice Any pair that is not exactly the approved pair reverts
+    function testFuzz_bondFor_onlyExactApprovedTermsAreAccepted(address ben, address dk) public {
+        vm.assume(ben != address(0) && dk != address(0));
+        vm.prank(operator1);
+        bonding.approveBondFor(bonder, beneficiary1, delegateKey1);
+
+        bool matches = ben == beneficiary1 && dk == delegateKey1;
+        vm.startPrank(bonder);
+        supToken.approve(address(bonding), MINIMUM_BOND);
+        if (!matches) vm.expectRevert(IValidatorBonding.APPROVAL_MISMATCH.selector);
+        bonding.bondFor(operator1, MINIMUM_BOND, ben, dk);
+        vm.stopPrank();
+
+        if (matches) assertEq(bonding.getBond(operator1).beneficiary, beneficiary1);
+        else assertFalse(bonding.isBonded(operator1));
     }
 
     /*//////////////////////////////////////////////////////////////
               EDGE CASE TESTS — P3-4: cancelUnbond by operator OR beneficiary
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Operator can cancel unbond initiated by beneficiary
-    function test_P3_4_operatorCancelsUnbondInitiatedByBeneficiary() public {
+    /// @notice Operator CANNOT cancel an unbond initiated by the beneficiary
+    /// @dev Inverted from the P3-4 behaviour. Letting the operator cancel here was the veto that
+    ///      made the beneficiary's exit non-unilateral; cancellation is now beneficiary-only.
+    function test_P3_4_operatorCannotCancelUnbondInitiatedByBeneficiary() public {
         _bondOperator(operator1, beneficiary1, delegateKey1, 2_000_000e18);
 
-        // Beneficiary initiates unbond
         vm.prank(beneficiary1);
         bonding.requestUnbond(operator1, 2_000_000e18);
 
-        // Operator cancels
         vm.prank(operator1);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
         bonding.cancelUnbond(operator1);
 
         IValidatorBonding.BondRecord memory record = bonding.getBond(operator1);
-        assertEq(record.unbondingAmount, 0);
-        assertEq(record.unbondingDeadline, 0);
-        assertEq(record.unbondingInitiator, address(0));
-        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Bonded));
+        assertEq(record.unbondingAmount, 2_000_000e18, "the recall survives");
+        assertEq(uint8(record.status), uint8(IValidatorBonding.ValidatorStatus.Unbonding));
     }
 
     /// @notice Beneficiary can cancel unbond initiated by operator
@@ -2485,7 +2998,7 @@ contract ValidatorBondingTest is Test {
         bonding.requestUnbond(operator1, 2_000_000e18);
 
         vm.prank(treasury);
-        vm.expectRevert(IValidatorBonding.NOT_OPERATOR_OR_BENEFICIARY.selector);
+        vm.expectRevert(IValidatorBonding.NOT_BENEFICIARY.selector);
         bonding.cancelUnbond(operator1);
     }
 
@@ -2751,7 +3264,7 @@ contract ValidatorBondingTest is Test {
         // Bonder executes bondFor
         vm.startPrank(bonder);
         supToken.approve(address(bonding), MINIMUM_BOND);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, customBen, customDk);
         vm.stopPrank();
 
         // Verify pre-committed values
@@ -3063,7 +3576,7 @@ contract ValidatorBondingTest is Test {
 
         // First bondFor succeeds
         vm.prank(bonder);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
 
         // Approval was consumed — getBondForApproval returns empty
         IValidatorBonding.BondForApproval memory approval = bonding.getBondForApproval(operator1);
@@ -3083,7 +3596,7 @@ contract ValidatorBondingTest is Test {
 
         // bondFor succeeds (consumes approval)
         vm.prank(bonder);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
 
         // Full unbond cycle
         vm.prank(operator1);
@@ -3095,7 +3608,7 @@ contract ValidatorBondingTest is Test {
         // Bonder tries to re-bond without fresh approval — reverts
         vm.expectRevert(IValidatorBonding.NOT_APPROVED_BONDER.selector);
         vm.prank(bonder);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
 
         // Operator must re-approve
         vm.prank(operator1);
@@ -3103,7 +3616,7 @@ contract ValidatorBondingTest is Test {
 
         // Now it works
         vm.prank(bonder);
-        bonding.bondFor(operator1, MINIMUM_BOND);
+        bonding.bondFor(operator1, MINIMUM_BOND, beneficiary1, delegateKey1);
 
         assertTrue(bonding.isBonded(operator1));
     }
@@ -3329,7 +3842,7 @@ contract ValidatorBondingTest is Test {
 
         vm.startPrank(funder);
         supToken.approve(address(bonding), amount);
-        bonding.bondFor(op, amount);
+        bonding.bondFor(op, amount, ben, dk);
         vm.stopPrank();
     }
 

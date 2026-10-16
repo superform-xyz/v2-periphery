@@ -64,7 +64,8 @@ struct BondRecord {
     address delegateKey;         // Validator's signing key (for off-chain coordination)
     uint256 unbondingDeadline;   // Timestamp after which executeUnbond succeeds. 0 = no pending unbond.
     uint256 unbondingAmount;     // Amount being unbonded (locked portion of `amount`)
-    address unbondingInitiator;  // Who called requestUnbond (only they can cancelUnbond)
+    address unbondingInitiator;  // Who called requestUnbond. Observability only; cancellation is
+                                 // gated on the beneficiary, so nothing reads this on-chain.
     ValidatorStatus status;
 }
 
@@ -94,6 +95,8 @@ Two scenarios at bond time:
 
 The `beneficiary` is immutable once set (cannot be changed after bonding). This prevents an operator with a Foundation loan from redirecting tokens to themselves.
 
+**Why the bonder restates the terms.** Immutability alone is not enough, because it only fixes the beneficiary *after* the bond exists. `approveBondFor` writes the operator's own slot and can be overwritten at any time with no nonce or deadline, so an operator could publish an approval naming the lender as beneficiary, let the lender verify it, and rewrite itself as beneficiary before the lender's transaction was mined. A multisig lender is especially exposed, since its transactions are proposed, signed and executed over hours or days. The bond would then be funded by the lender but owed to the operator, and because the beneficiary is immutable the lender could not repair the record and was locked out of `requestUnbond`, `cancelUnbond` and `executeUnbond`. `bondFor` therefore takes `beneficiary` and `delegateKey` as arguments and reverts `APPROVAL_MISMATCH` if they differ from the approval. An operator that rewrites or revokes its approval can still make the bonder's transaction revert, which costs gas rather than principal.
+
 ### Input Validation
 
 All external functions must validate:
@@ -112,12 +115,13 @@ All external functions must validate:
 | `updateDelegateKey(address newKey)` | Operator OR beneficiary | Change the signing key. |
 
 **`bondFor()` logic:**
-1. Reverts if `bonds[operator].status != Unbonded` — **cannot re-bond an existing operator**. This protects beneficiary immutability. An operator must fully unbond (or be slashed to zero) before re-bonding.
-2. `transferFrom(msg.sender, address(this), amount)` — sUP comes from caller
-3. `amount >= minimumBond` required
-4. Sets `beneficiary`, `delegateKey`, status = `Bonded`
-5. Adds to `_operators` registry
-6. Emits `Bonded(operator, beneficiary, delegateKey, amount)`
+1. Reverts `NOT_APPROVED_BONDER` unless `approvals[operator].bonder == msg.sender`, then reverts `APPROVAL_MISMATCH` unless the `beneficiary` and `delegateKey` the caller passed equal the approved ones. Both sides therefore consent to the same terms in the same transaction. See "Why the bonder restates the terms" below.
+2. Reverts if `bonds[operator].status != Unbonded` — **cannot re-bond an existing operator**. This protects beneficiary immutability. An operator must fully unbond (or be slashed to zero) before re-bonding.
+3. `transferFrom(msg.sender, address(this), amount)` — sUP comes from caller
+4. `amount >= minimumBond` required
+5. Sets `beneficiary`, `delegateKey`, status = `Bonded`
+6. Adds to `_operators` registry
+7. Emits `Bonded(operator, beneficiary, delegateKey, amount)`
 
 **`addBond()` logic:**
 1. Allowed in both `Bonded` and `Unbonding` status — an operator mid-unbond can top up their bond (e.g., after a partial slash reduced them below minimum)
@@ -136,15 +140,32 @@ All external functions must validate:
 |----------|--------|-------------|
 | `requestUnbond(uint256 amount)` | Operator OR beneficiary | Start unbonding. Partial or full. |
 | `executeUnbond()` | Operator OR beneficiary | After unbonding deadline, sends sUP to `beneficiary`. |
-| `cancelUnbond()` | Unbond initiator only | Cancel pending unbond, re-bond tokens. |
+| `cancelUnbond(address operator)` | Beneficiary only | Cancel pending unbond, re-bond tokens. |
 
 Both the operator and beneficiary can initiate unbonding and execute it. This ensures the Foundation (as beneficiary) can pull back a loan without needing the operator's cooperation. The Foundation should notify the operator off-chain as a courtesy, but the contract does not enforce this.
 
-**`cancelUnbond()` is restricted to the initiator** (whoever called `requestUnbond`). This prevents a griefing vector where one party repeatedly cancels the other's unbond to reset the cooldown.
+**`cancelUnbond()` is restricted to the beneficiary.** The reasoning starts from `executeUnbond`, which always pays `beneficiary` whoever requested or executed it. Both parties' requests therefore send funds to the same address: an operator's request is a repayment, a beneficiary's is a recall, and neither party can route money to itself by requesting. Cancelling is consequently not a claim on the funds but a decision about whether the bond stays outstanding, and that decision belongs to the payee.
+
+This is what makes the beneficiary's exit genuinely unilateral, which the Foundation-loan model depends on: the operator cannot veto a recall. It also defuses the single-slot problem. `requestUnbond` rejects a second request while one is pending, so a 1 wei request parks the only slot; because the beneficiary can clear any pending request and the operator cannot clear the beneficiary's, a squat is survivable rather than a trap.
+
+The operator keeps its repayment route, since its own request still matures and still pays the beneficiary. It simply cannot cancel one. In a self-bond the operator and beneficiary are the same address, so nothing changes.
+
+Two earlier positions are superseded. The original design restricted cancellation to the initiator, which stops the mutual-reset griefing but leaves no way to clear an occupied slot. The 2026-05-11 review's P3-4 then broadened cancellation to either party, which clears slots but hands the operator a veto over the lender's exit. Gating on the beneficiary closes both.
+
+**The beneficiary may supersede a pending request.** One request is pending at a time, with that
+single exception. It exists because beneficiary-only cancellation protects a recall once installed
+but does not let the beneficiary install one: cancelling and requesting are separate transactions,
+so an operator that re-requests 1 wei in between keeps the slot occupied and the recall reverts
+every round. A multisig beneficiary is worst affected, since the gap is however long signature
+collection takes. Superseding removes the gap. A supersession emits `UnbondCancelled` for the
+replaced request before `UnbondRequested` for the new one, restarts the cooldown, and returns the
+status to `Bonded` if it shrinks a full request to a partial one. The operator can neither cancel
+nor supersede; its recourse is the beneficiary.
 
 **`requestUnbond()` logic:**
 1. `msg.sender == operator || msg.sender == beneficiary`
-2. Reverts if there is already a pending unbond (`unbondingAmount > 0`) — one pending unbond at a time
+2. Reverts `PENDING_UNBOND_EXISTS` if a request is already pending, UNLESS the caller is the
+   beneficiary, who supersedes it atomically (see above)
 3. If partial: `bond.amount - amount >= minimumBond` required (checked against total `amount`, not effective balance)
 4. If full (`amount == bond.amount`): status = `Unbonding`
 5. If partial: status stays `Bonded`
@@ -164,7 +185,7 @@ Both the operator and beneficiary can initiate unbonding and execute it. This en
 8. Emits `UnbondExecuted(operator, beneficiary, unbondingAmount)`
 
 **`cancelUnbond()` logic:**
-1. `msg.sender == bond.unbondingInitiator` — only the party who requested can cancel
+1. `msg.sender == bond.beneficiary` — reverts `NOT_BENEFICIARY` otherwise
 2. Resets `unbondingAmount = 0`, `unbondingDeadline = 0`, `unbondingInitiator = address(0)`
 3. If status was `Unbonding` (full unbond): status = `Bonded`
 4. Emits `UnbondCancelled(operator, amount)`

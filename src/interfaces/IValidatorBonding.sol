@@ -34,8 +34,8 @@ interface IValidatorBonding is IAccessControl {
     ///        but amount < minimumBond. Always use isBonded() for active-bond checks.
     /// @param delegateKey Validator's signing key for off-chain coordination
     /// @param unbondingAmount Portion of amount being unbonded
-    /// @param unbondingInitiator Who called requestUnbond (observability only — not access-controlled;
-    ///        both operator and beneficiary can cancel regardless of initiator)
+    /// @param unbondingInitiator Who called requestUnbond. Observability only: cancellation is
+    ///        gated on the beneficiary, not on this field, so nothing reads it on-chain.
     struct BondRecord {
         uint256 amount; // slot 0
         address beneficiary; // slot 1: 20 bytes
@@ -78,6 +78,11 @@ interface IValidatorBonding is IAccessControl {
     error UNBONDING_NOT_COMPLETE();
     /// @notice Thrown when caller is not the operator or beneficiary
     error NOT_OPERATOR_OR_BENEFICIARY();
+
+    /// @notice Thrown when someone other than the beneficiary tries to cancel a pending unbond.
+    ///         Cancelling decides whether the bond stays outstanding, and since executeUnbond
+    ///         always pays the beneficiary, that decision belongs to the payee alone.
+    error NOT_BENEFICIARY();
     /// @notice Thrown when trying to slash an operator with zero bond
     error NOTHING_TO_SLASH();
     /// @notice Thrown when providing an invalid minimum bond value (out of bounds)
@@ -88,6 +93,12 @@ interface IValidatorBonding is IAccessControl {
     error EXCEEDS_BOND_AMOUNT();
     /// @notice Thrown when caller is not an approved bonder for the operator
     error NOT_APPROVED_BONDER();
+
+    /// @notice Thrown when the terms the bonder passes to bondFor do not match the operator's
+    ///         live approval. The operator can overwrite its own approval at any time, so the
+    ///         bonder must state the beneficiary and delegate key it agreed to fund and have
+    ///         them checked at execution time.
+    error APPROVAL_MISMATCH();
     /// @notice Thrown when no parameter change is pending
     error NO_PENDING_CHANGE();
     /// @notice Thrown when the parameter timelock has not expired
@@ -207,10 +218,20 @@ interface IValidatorBonding is IAccessControl {
     function bond(uint256 amount, address beneficiary, address delegateKey) external;
 
     /// @notice Bond sUP on behalf of an operator (requires prior approval via approveBondFor)
-    /// @dev beneficiary and delegateKey are read from the pre-committed approval
+    /// @dev BOTH SIDES CONSENT. The operator pre-commits beneficiary and delegateKey through
+    ///      approveBondFor, and the bonder restates them here; a mismatch reverts
+    ///      APPROVAL_MISMATCH. Passing them is NOT redundant: approveBondFor overwrites the
+    ///      operator's own slot with no nonce or deadline, so an operator could otherwise show a
+    ///      lender-as-beneficiary approval, let the lender verify it, and rewrite itself as
+    ///      beneficiary before the lender's transaction landed. Since the beneficiary is immutable
+    ///      for the life of the bond, that redirection was unrecoverable except by a governance
+    ///      slash. An operator that rewrites or revokes its approval now only makes the bonder's
+    ///      transaction revert, which costs gas rather than principal.
     /// @param operator The operator address
     /// @param amount Amount of sUP to bond (must be >= minimumBond)
-    function bondFor(address operator, uint256 amount) external;
+    /// @param beneficiary The beneficiary the bonder is funding; must equal the approved value
+    /// @param delegateKey The delegate key the bonder agreed to; must equal the approved value
+    function bondFor(address operator, uint256 amount, address beneficiary, address delegateKey) external;
 
     /// @notice Approve an address to call bondFor on behalf of msg.sender, pre-committing beneficiary and delegateKey
     /// @param bonder The address to approve as a bonder
@@ -241,7 +262,25 @@ interface IValidatorBonding is IAccessControl {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Request unbonding of sUP (partial or full)
-    /// @dev Callable by operator or beneficiary
+    /// @dev Callable by operator or beneficiary. One request may be pending at a time, with one
+    ///      exception: THE BENEFICIARY MAY SUPERSEDE A PENDING REQUEST, replacing it atomically in
+    ///      the same transaction and restarting the cooldown.
+    ///
+    ///      That exception is load-bearing, not a convenience. Gating cancellation on the
+    ///      beneficiary protects a recall once installed, but it does not let the beneficiary
+    ///      install one: cancel and request are separate transactions, so an operator that
+    ///      re-requests 1 wei in between keeps the slot occupied and the recall reverts
+    ///      PENDING_UNBOND_EXISTS every round. A multisig beneficiary is worst affected, since the
+    ///      gap is however long signature collection takes. Superseding closes that race because
+    ///      there is no gap to race into.
+    ///
+    ///      A supersession emits UnbondCancelled for the replaced request before UnbondRequested
+    ///      for the new one, so indexers never observe two live requests. Superseding a full
+    ///      request with a partial one returns the status to Bonded, mirroring cancelUnbond.
+    ///
+    ///      The operator cannot supersede, and cannot cancel. Its recourse is the beneficiary.
+    ///      The asymmetry is deliberate: the beneficiary is the payee and, in a loan, the only
+    ///      party with capital at risk.
     /// @param operator The operator to unbond
     /// @param amount Amount to unbond (partial: remaining must be >= minimumBond)
     function requestUnbond(address operator, uint256 amount) external;
@@ -252,7 +291,16 @@ interface IValidatorBonding is IAccessControl {
     function executeUnbond(address operator) external;
 
     /// @notice Cancel a pending unbond
-    /// @dev Callable by operator or beneficiary
+    /// @dev BENEFICIARY ONLY. executeUnbond always pays bond_.beneficiary whoever requested or
+    ///      executed it, so an operator's request is a repayment and a beneficiary's is a recall,
+    ///      and both send funds to the same address. Cancelling is therefore not a claim on the
+    ///      money but a decision about whether the bond stays outstanding, which belongs to the
+    ///      payee. Restricting it here is what gives the beneficiary a unilateral exit the
+    ///      operator cannot veto, and what keeps a dust request from trapping the slot: the
+    ///      beneficiary can always clear a pending request and open its own, and the operator
+    ///      cannot clear that one back out. The operator keeps its repayment route, since its own
+    ///      request still matures and still pays the beneficiary. In a self-bond the two
+    ///      addresses coincide, so nothing changes.
     /// @param operator The operator whose unbond to cancel
     function cancelUnbond(address operator) external;
 
@@ -290,8 +338,11 @@ interface IValidatorBonding is IAccessControl {
     function executeUnbondingPeriodUpdate() external;
 
     /// @notice Cancel a pending parameter change
-    /// @dev Only callable by GOVERNOR_ROLE
-    /// @param paramKey The parameter key to cancel (MINIMUM_BOND_KEY or UNBONDING_PERIOD_KEY)
+    /// @dev Access follows each key's proposer: GOVERNOR_ROLE for MINIMUM_BOND_KEY and
+    ///      UNBONDING_PERIOD_KEY, DEFAULT_ADMIN_ROLE for PARAMETER_TIMELOCK_KEY. The governor
+    ///      therefore cannot cancel an admin-proposed timelock change, or vice versa.
+    /// @param paramKey The parameter key to cancel (MINIMUM_BOND_KEY, UNBONDING_PERIOD_KEY or
+    ///        PARAMETER_TIMELOCK_KEY)
     function cancelProposedChange(bytes32 paramKey) external;
 
     /// @notice Propose a new parameter timelock duration (subject to current timelock)
