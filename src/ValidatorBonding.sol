@@ -170,7 +170,6 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         emit BondForApprovalRevoked(msg.sender);
     }
 
-
     /// @inheritdoc IValidatorBonding
     function addBond(address operator, uint256 amount) external nonReentrant {
         if (amount == 0) revert ZERO_AMOUNT();

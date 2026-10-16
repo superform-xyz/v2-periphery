@@ -252,17 +252,21 @@ contract BondingHandler is Test {
         IValidatorBonding.BondRecord memory r = bonding.getBond(op);
         if (r.amount == 0 || r.beneficiary == address(0) || r.unbondingAmount > 0) return;
 
+        // Full amount, not a random partial: a partial that leaves less than minimumBond reverts
+        // BELOW_MINIMUM_BOND and returns before cancelling, which is what made this composite stop
+        // covering the cancel path once cancellation became beneficiary-only.
         address opener = seed % 2 == 0 ? op : r.beneficiary;
         vm.prank(opener);
-        try bonding.requestUnbond(op, bound(seed, 1, r.amount)) {
+        try bonding.requestUnbond(op, r.amount) {
             ++ghost_requested;
         } catch {
             return;
         }
 
-        // Cancel is beneficiary-only, so half these attempts are the operator being refused.
-        // Both outcomes are wanted: the refusal exercises the gate, the success the happy path.
-        vm.prank(seed % 4 < 2 ? op : r.beneficiary);
+        // Always the beneficiary here, since this composite exists to guarantee the happy path is
+        // covered. The granular cancelUnbond action still attempts it as the operator half the
+        // time, which is where the refusal gets exercised.
+        vm.prank(r.beneficiary);
         try bonding.cancelUnbond(op) {
             ++ghost_cancelled;
         } catch { }
