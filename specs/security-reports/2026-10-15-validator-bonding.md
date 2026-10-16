@@ -92,7 +92,11 @@ Three options, in rough order of cost:
 1. Reinstate initiator-only. Matches the spec, makes `unbondingInitiator` load-bearing, and
    reintroduces exactly the concern P3-4 raised.
 2. Let each party cancel only its own request, and refuse cancel inside a short window before the
-   deadline so it cannot be used purely to reset a counterparty's clock.
+   deadline so it cannot be used purely to reset a counterparty's clock. **Insufficient on its own,
+   per review of PR #343:** a no-cancel window still gives the other party no way to clear or
+   replace an occupied slot, so the dust squat survives. Pairing it with per-party request slots,
+   or an atomic authorised superseding exit, is what actually closes both. Either needs a fresh
+   accounting and liveness review.
 3. Keep the open cancel, accept that the lender's remedy is a slash, and correct all three
    documents plus drop the now-dead field.
 
@@ -155,10 +159,15 @@ spot.
 
 **A matured unbond request never expires.** Once the deadline passes the holder has a standing
 option to exit at any future block, including the block they learn a slash is coming. This is the
-previously accepted P2-3, but the external research sharpens it: the governor is a Safe, so a
-pending slash is visible during signature collection, which turns a mempool race into hours or days
-of warning. A cheap freeze outside the parameter timelock would close it without redesigning
-anything. Worth re-weighing the earlier acceptance in light of H-2, since the beneficiary cannot
+previously accepted P2-3. **Correction, raised in review of PR #343:** an earlier draft of this
+report argued the window is wide because the governor is a Safe whose signature collection is
+public. That is wrong. The configured `GOVERNOR_ROLE` holder `0x9e01…48eC` is codeless at the
+pinned block, so slashing is a single-key EOA action, not a multisig one. The admin Safe
+`0x89226a5F…` is a different address, and the SuperGovernor contract is a third. The ordering risk
+is real either way, but it should be argued from the actual execution path rather than an assumed
+multisig delay, and a single-key slasher cuts both ways: faster to land against a maturing exit,
+and a single point of compromise. A cheap freeze outside the parameter timelock would close it
+without redesigning anything. Worth re-weighing the earlier acceptance in light of H-2, since the beneficiary cannot
 reliably reach its own deadline either.
 
 **Arbitrary slash recipient, uncapped, with no delay.** Documented as deliberate in the contract
@@ -203,9 +212,10 @@ recording. Two of them, the permissionless parameter execute and the non-expirin
 are previously reviewed and accepted items rather than new discoveries. A third, the arbitrary slash
 recipient, is documented as deliberate in the contract header. The fourth is H-2, which I agree is
 the most serious open item but which is a conflict between two prior decisions rather than an
-unrecognised flaw. Its exploit-precedent work is genuinely valuable and the Safe-visibility argument
-is new, but the ratings are calibrated for an unreviewed contract and would overstate the position
-here.
+unrecognised flaw. Its exploit-precedent work is genuinely valuable, but the ratings are calibrated
+for an unreviewed contract and would overstate the position here. Its Safe-visibility argument,
+which I repeated in an earlier draft, turned out to rest on a false premise: the slashing role is
+held by an EOA, not a Safe.
 
 One of its findings I assess as weaker than rated. It argues that topping up a bond during a pending
 unbond dilutes a subsequent slash by inflating the proportional denominator. The split does move,
@@ -214,8 +224,15 @@ shifts the timing of receipt rather than sheltering value.
 
 ## Notes
 
-The contract is deployed at `0x557760077fE26D9699D5dB779b0883EF96519B01` on Base and carries the
-pre-fix ABI. It has never been bonded and holds no sUP, so a redeploy needs no migration.
+The fixed contract is deployed at `0x2466b82212f3ee3ee5FFA1b925eF5ec3Fa3c67C7` on Base.
+
+The previous instance at `0x557760077fE26D9699D5dB779b0883EF96519B01` still carries the pre-fix
+ABI and is still live. A new address does not disable the old one's public bonding functions, and
+it has never been bonded and holds no sUP. Before any Foundation funding, repoint addresses, ABI
+consumers and any prepared multisig payloads together, and reject the old address explicitly in
+funding and enrolment tooling. The selector moves from `bondFor(address,uint256)` `0xc105a332` to
+`bondFor(address,uint256,address,address)` `0xa193c110`. Note that per-operator approvals on the
+old instance are not enumerable, so their absence cannot be proven from chain state.
 
 `forge fmt --check` fails on this file, and has since before this branch. Fixing it reformats the
 whole contract, so it was deliberately left alone to keep these diffs reviewable.
