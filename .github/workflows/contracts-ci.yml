@@ -101,6 +101,21 @@ jobs:
 
       - name: "Build the contracts and print their size"
         run: "FOUNDRY_PROFILE=ci-sizes forge build --sizes"
+      - name: "Locked bytecode matches source (SuperVaultCounsel, SuperVaultVetoRegistry)"
+        run: |
+          # The locked artifacts pin the CREATE2 addresses. A source edit that is not followed by a
+          # regenerate-and-copy silently moves the predicted address, so compare creation bytecode.
+          chmod +x ./script/run/tooling/regenerate_bytecode.sh
+          for c in SuperVaultCounsel SuperVaultVetoRegistry; do
+            ./script/run/tooling/regenerate_bytecode.sh "$c" > /dev/null
+            for dir in locked-bytecode locked-bytecode-dev; do
+              node -e '
+                const g = require(process.argv[1]).bytecode.object, l = require(process.argv[2]).bytecode.object;
+                if (g !== l) { console.error(`::error::${process.argv[3]} creation bytecode in ${process.argv[4]} drifted from source. Regenerate and copy it.`); process.exit(1); }
+                console.log(`${process.argv[3]} matches ${process.argv[4]}`);
+              ' "$PWD/script/generated-bytecode/$c.json" "$PWD/script/$dir/$c.json" "$c" "script/$dir"
+            done
+          done
 
       - name: "Add build summary"
         run: |

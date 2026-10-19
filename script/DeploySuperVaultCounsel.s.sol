@@ -648,38 +648,6 @@ contract DeploySuperVaultCounsel is DeployV2Base {
         console2.log("Under key:", key);
     }
 
-    /// @notice Path to the chain's output JSON for the given environment
-    function _outputJsonPath(
-        uint256 env,
-        uint64 chainId,
-        string calldata branchName
-    )
-        internal
-        view
-        returns (string memory)
-    {
-        string memory envFolder;
-        if (env == 0) {
-            envFolder = "prod";
-        } else if (env == 1) {
-            envFolder = branchName;
-        } else {
-            envFolder = "staging";
-        }
-        return string(
-            abi.encodePacked(
-                vm.projectRoot(),
-                "/script/output/",
-                envFolder,
-                "/",
-                vm.toString(uint256(chainId)),
-                "/",
-                chainNames[chainId],
-                "-latest.json"
-            )
-        );
-    }
-
     /// @notice Per-strategy salt name so multiple Counsel instances coexist deterministically
     function _saltName(address strategy) internal pure returns (string memory) {
         return string(abi.encodePacked(COUNSEL_KEY, "_", vm.toString(strategy)));

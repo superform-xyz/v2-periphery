@@ -4,6 +4,7 @@ pragma solidity >=0.8.30;
 import { DeployV2Base } from "./DeployV2Base.s.sol";
 import { SuperVaultCounsel } from "../src/SuperVault/SuperVaultCounsel.sol";
 import { ISuperVaultAggregator } from "../src/interfaces/SuperVault/ISuperVaultAggregator.sol";
+import { ISuperVaultExecutor } from "../src/interfaces/SuperVault/ISuperVaultExecutor.sol";
 import { console2 } from "forge-std/console2.sol";
 
 /// @title ConfigureSuperVaultCounsel
@@ -22,6 +23,15 @@ import { console2 } from "forge-std/console2.sol";
 ///         keys exist. Without that guard a second run after step 4 would invalidate the keeper
 ///         keys just granted and stop the keepers with no error anywhere. Do not "simplify" the
 ///         guard to cover enrollExecutor alone: that was the original bug.
+///
+///         PRECONDITION the guard cannot check: it reads "executor is a secondary" as "no seating
+///         since the last enrollment". That holds as long as enrollment only ever happens through
+///         this script. If the operator calls enrollExecutor() BY HAND after a re-seat, before
+///         invalidating, the executor looks enrolled, the script skips both steps, and the stale
+///         keys from the previous tenure stay live. There is no on-chain flag that distinguishes
+///         the two cases. So: after any seating, enroll through this script only. runCheck prints
+///         the executor's key generation for the strategy; it must be higher than the value the
+///         last run logged, or invalidation never happened.
 ///         Seating wipes the executor from the secondary set, which is what keeps those revived
 ///         keys inert; enrolling the executor before invalidating them re-arms them for the
 ///         gap between the two (separately mined) transactions. Invalidate first.
@@ -81,16 +91,7 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
             console2.log("            No seating since enrollment, so no stale keys can exist.");
             console2.log("            SKIPPING BOTH - invalidating here would kill live keeper keys.");
         } else {
-            // Order matters: invalidate BEFORE the executor regains manager powers, because a
-            // Counsel reinstated at the same address revives every unexpired key from its
-            // previous tenure (a manager change does not bump the executor's key generation).
-            console2.log("[Step 2] Calling invalidateAllSessionKeys()...");
-            counsel.invalidateAllSessionKeys();
-            console2.log("[Step 2] DONE");
-
-            console2.log("[Step 3] Calling enrollExecutor()...");
-            counsel.enrollExecutor();
-            console2.log("[Step 3] DONE");
+            _invalidateThenEnroll(counsel);
         }
 
         // Post-verify
@@ -117,11 +118,15 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         _validateEnvAndBranchName(env, branchName);
         _setBaseConfiguration(env, branchName);
 
-        string memory json = vm.readFile(_outputJsonPath(env, chainId, branchName));
+        string memory json = _loadOutputJson(env, chainId, branchName);
         ISuperVaultAggregator aggregator = ISuperVaultAggregator(vm.parseJsonAddress(json, ".SuperVaultAggregator"));
 
         address[] memory strategies = _readFleetStrategies(env, chainId);
         if (strategies.length == 0) {
+            // The registry fallback is for staging and vnet, where the fleet file is often empty and
+            // every strategy is disposable. On prod an empty fleet is a configuration mistake, and
+            // walking every live strategy on the chain is the wrong way to find that out.
+            require(env != 0, "FLEET_EMPTY_FOR_PROD_REFUSING_REGISTRY_FALLBACK");
             console2.log("Fleet list empty for this env/chain - falling back to FULL on-chain registry");
             strategies = aggregator.getAllSuperVaultStrategies();
         }
@@ -166,12 +171,7 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
                 continue;
             }
 
-            // invalidate FIRST: stale keys from a prior tenure revive with the seat and must be
-            // dead before the executor regains manager powers
-            counsel.invalidateAllSessionKeys();
-            console2.log("    invalidateAllSessionKeys: DONE");
-            counsel.enrollExecutor();
-            console2.log("    enrollExecutor: DONE");
+            _invalidateThenEnroll(counsel);
             require(aggregator.isSecondaryManager(executor, strategy), "EXECUTOR_ENROLLMENT_FAILED");
             configured++;
         }
@@ -197,6 +197,27 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         if (strategies.length > 0 && configured == 0 && alreadyEnrolled == 0) {
             revert("NOTHING_CONFIGURED_EVERY_STRATEGY_SKIPPED");
         }
+    }
+
+    /// @notice Runbook steps 2 and 3, in the only safe order. Shared by run() and runAll() so the
+    ///         two cannot drift apart.
+    /// @dev Invalidate FIRST: a Counsel reinstated at the same address revives every unexpired key
+    ///      from its previous tenure, because a manager change does not bump the executor's key
+    ///      generation. The keys must be dead before the executor regains manager powers. The
+    ///      generation is logged on both sides of the bump so a runbook reader has a number to
+    ///      compare against runCheck later; it is the only on-chain trace invalidation leaves.
+    function _invalidateThenEnroll(SuperVaultCounsel counsel) internal {
+        ISuperVaultExecutor exec = counsel.EXECUTOR();
+        address strategy = address(counsel.STRATEGY());
+
+        uint256 generationBefore = exec.getStrategyGeneration(strategy);
+        console2.log("    [Step 2] invalidateAllSessionKeys()...");
+        counsel.invalidateAllSessionKeys();
+        console2.log("    [Step 2] DONE. key generation:", generationBefore, "->", exec.getStrategyGeneration(strategy));
+
+        console2.log("    [Step 3] enrollExecutor()...");
+        counsel.enrollExecutor();
+        console2.log("    [Step 3] DONE");
     }
 
     /// @notice Whether enrollment steps 2 and 3 still need to run for this strategy.
@@ -245,9 +266,13 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         console2.log("[Step 1] mainManager:", mainManager);
         console2.log("[Step 1] Counsel seated as primary:", mainManager == address(counsel));
         console2.log("[Step 3] Executor enrolled as secondary:", aggregator.isSecondaryManager(executor, strategy));
+        // Invalidation leaves no flag, only a generation bump. The number is what a runbook reader
+        // compares against the value the last run logged.
         console2.log(
-            "[Step 2] invalidateAllSessionKeys leaves no on-chain flag to read - see the executor's AllSessionKeysInvalidated events"
+            "[Step 2] executor key generation for this strategy:",
+            ISuperVaultExecutor(executor).getStrategyGeneration(strategy)
         );
+        console2.log("         must exceed the value logged by the last run, or invalidation never happened");
 
         address[] memory secondaries = aggregator.getSecondaryManagers(strategy);
         console2.log("Secondary managers (audit - runbook step 0):", secondaries.length);
@@ -276,7 +301,7 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
     {
         require(strategy != address(0), "INVALID_STRATEGY");
 
-        string memory json = vm.readFile(_outputJsonPath(env, chainId, branchName));
+        string memory json = _loadOutputJson(env, chainId, branchName);
 
         string memory counselKey = string(abi.encodePacked(".SuperVaultCounsel_", vm.toString(strategy)));
         require(vm.keyExistsJson(json, counselKey), "COUNSEL_NOT_IN_OUTPUT_JSON_DEPLOY_FIRST");
@@ -298,7 +323,15 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
 
     /// @notice Read the curated strategy list for this env+chain from counsel-fleet.json
     ///         (per-strategy entry objects; only the .strategy field is needed here)
-    function _readFleetStrategies(uint256 env, uint64 chainId) internal view returns (address[] memory strategies) {
+    function _readFleetStrategies(
+        uint256 env,
+        uint64 chainId
+    )
+        internal
+        view
+        virtual
+        returns (address[] memory strategies)
+    {
         string memory json = vm.readFile(string(abi.encodePacked(vm.projectRoot(), "/script/utils/counsel-fleet.json")));
         // env 0 = prod; everything else (staging/vnet) uses the staging fleet section
         string memory base =
@@ -311,9 +344,25 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         }
         strategies = new address[](n);
         for (uint256 i = 0; i < n; i++) {
-            strategies[i] =
-                vm.parseJsonAddress(json, string(abi.encodePacked(base, "[", vm.toString(i), "]", ".strategy")));
+            // Name the malformed entry rather than letting parseJson fail with an opaque error.
+            string memory field = string(abi.encodePacked(base, "[", vm.toString(i), "].strategy"));
+            require(vm.keyExistsJson(json, field), string(abi.encodePacked("FLEET_ENTRY_MISSING_STRATEGY_FIELD:", field)));
+            strategies[i] = vm.parseJsonAddress(json, field);
         }
+    }
+
+    /// @notice The chain's output JSON. Virtual so the script tests can supply one in memory.
+    function _loadOutputJson(
+        uint256 env,
+        uint64 chainId,
+        string calldata branchName
+    )
+        internal
+        view
+        virtual
+        returns (string memory)
+    {
+        return vm.readFile(_outputJsonPath(env, chainId, branchName));
     }
 
     /// @notice Non-reverting Counsel lookup for the fleet path
@@ -321,37 +370,5 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         string memory key = string(abi.encodePacked(".SuperVaultCounsel_", vm.toString(strategy)));
         if (!vm.keyExistsJson(json, key)) return address(0);
         return vm.parseJsonAddress(json, key);
-    }
-
-    /// @notice Path to the chain's output JSON for the given environment
-    function _outputJsonPath(
-        uint256 env,
-        uint64 chainId,
-        string calldata branchName
-    )
-        internal
-        view
-        returns (string memory)
-    {
-        string memory envFolder;
-        if (env == 0) {
-            envFolder = "prod";
-        } else if (env == 1) {
-            envFolder = branchName;
-        } else {
-            envFolder = "staging";
-        }
-        return string(
-            abi.encodePacked(
-                vm.projectRoot(),
-                "/script/output/",
-                envFolder,
-                "/",
-                vm.toString(uint256(chainId)),
-                "/",
-                chainNames[chainId],
-                "-latest.json"
-            )
-        );
     }
 }

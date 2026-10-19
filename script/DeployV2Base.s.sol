@@ -543,4 +543,41 @@ abstract contract DeployV2Base is Script, ConfigBase {
         }
         return result;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          OUTPUT JSON PATH
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Path to the chain's output JSON for the given environment
+    /// @dev Shared by the Counsel deploy and configure scripts, which used to carry identical copies.
+    function _outputJsonPath(
+        uint256 env,
+        uint64 chainId,
+        string calldata branchName
+    )
+        internal
+        view
+        returns (string memory)
+    {
+        string memory envFolder;
+        if (env == 0) {
+            envFolder = "prod";
+        } else if (env == 1) {
+            envFolder = branchName;
+        } else {
+            envFolder = "staging";
+        }
+        return string(
+            abi.encodePacked(
+                vm.projectRoot(),
+                "/script/output/",
+                envFolder,
+                "/",
+                vm.toString(uint256(chainId)),
+                "/",
+                chainNames[chainId],
+                "-latest.json"
+            )
+        );
+    }
 }
