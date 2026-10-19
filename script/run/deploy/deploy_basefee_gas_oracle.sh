@@ -12,7 +12,7 @@
 # warning for chainId != 1).
 #
 # Usage:
-#   ./deploy_basefee_gas_oracle.sh <environment> <mode> [account] [chain_id]
+#   ./script/run/deploy/deploy_basefee_gas_oracle.sh <environment> <mode> [account] [chain_id]
 #
 # Parameters:
 #   environment  "prod" or "staging"
@@ -52,7 +52,7 @@ set -euo pipefail
 ###################################################################################
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # DEFAULT_ADMIN_ROLE holder (Superform Treasury multisig - ConfigBase.SUPERFORM_TREASURY)
 readonly ADMIN="${ADMIN:-0x1dbD9b26b295A33f126456Ab4e498cd308622f08}"

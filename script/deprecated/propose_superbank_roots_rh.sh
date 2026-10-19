@@ -10,8 +10,8 @@
 # DELETE THIS FILE (and the .s.sol) AFTER THE ROOTS ARE EXECUTED ON-CHAIN.
 #
 # Usage:
-#   ./script/run/propose_superbank_roots_rh.sh simulate
-#   ./script/run/propose_superbank_roots_rh.sh propose [account]
+#   ./script/deprecated/propose_superbank_roots_rh.sh simulate
+#   ./script/deprecated/propose_superbank_roots_rh.sh propose [account]
 #
 #   simulate: dry-run against RH with the governor EOA as sender (no broadcast)
 #   propose:  broadcast with the local keystore account (default: v2-supervaults)

@@ -14,10 +14,10 @@
 #                  as a clobber guard: the pending slot is global and overwritable)
 #
 # Mainnet (1) only. BasefeeGasOracle must already be deployed and present in
-# script/output/{env}/1/Ethereum-latest.json (run deploy_basefee_gas_oracle.sh first).
+# script/output/{env}/1/Ethereum-latest.json (run script/run/deploy/deploy_basefee_gas_oracle.sh first).
 #
 # Usage:
-#   ./update_gas_oracle.sh <environment> <action> [mode] [account] [queue_timestamp]
+#   ./script/run/config/update_gas_oracle.sh <environment> <action> [mode] [account] [queue_timestamp]
 #
 # Parameters:
 #   environment      "prod" or "staging"
@@ -27,11 +27,11 @@
 #   queue_timestamp  Timestamp logged by queue (required for finalize; 0 skips guard)
 #
 # Examples:
-#   ./update_gas_oracle.sh staging check
-#   ./update_gas_oracle.sh staging queue simulate
-#   ./update_gas_oracle.sh prod queue execute v2-deployer
-#   ./update_gas_oracle.sh prod finalize simulate 1787000000
-#   ./update_gas_oracle.sh prod finalize execute v2-deployer 1787000000
+#   ./script/run/config/update_gas_oracle.sh staging check
+#   ./script/run/config/update_gas_oracle.sh staging queue simulate
+#   ./script/run/config/update_gas_oracle.sh prod queue execute v2-deployer
+#   ./script/run/config/update_gas_oracle.sh prod finalize simulate 1787000000
+#   ./script/run/config/update_gas_oracle.sh prod finalize execute v2-deployer 1787000000
 #
 # Built-in safety rails (in the Solidity script):
 #   - queue aborts if another oracle update is already pending (global slot!)
@@ -58,7 +58,7 @@ set -euo pipefail
 ###################################################################################
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Mainnet only - the migration targets the Ethereum SuperOracle
 readonly CHAIN_ID=1
@@ -100,7 +100,7 @@ Examples:
     $0 prod finalize simulate 1787000000
     $0 prod finalize execute v2-deployer 1787000000
 
-Mainnet only. Deploy BasefeeGasOracle first (deploy_basefee_gas_oracle.sh).
+Mainnet only. Deploy BasefeeGasOracle first (script/run/deploy/deploy_basefee_gas_oracle.sh).
 
 EOF
     exit 1

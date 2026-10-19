@@ -135,7 +135,7 @@ abstract contract ConfigBase is Constants {
     address internal constant UP_TOKEN_RH = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
     address internal constant UP_TOKEN_BNB = 0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B; // UpOFT on BSC
     // Arc: deterministic UpOFT address (same CREATE2 salt, LZ endpoint 0x6F47...DD5B and v2-supervaults delegate
-    // as RH, hence the same address as RH). Deploy via script/run/deploy_up_oft_arc.sh before the periphery run.
+    // as RH, hence the same address as RH). Deploy via script/run/deploy/deploy_up_oft_arc.sh before the periphery run.
     address internal constant UP_TOKEN_ARC = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E; // UpOFT on Arc
     int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
     uint8 internal constant UP_PRICE_DECIMALS = 18;

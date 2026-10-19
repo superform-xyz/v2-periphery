@@ -49,13 +49,13 @@
 # enforced options for eid 30417) before the pathways are usable.
 #
 # Usage:
-#   ./script/run/deploy_up_oft_arc.sh deploy [account]        # deploy UpOFT, writes address to
+#   ./script/run/deploy/deploy_up_oft_arc.sh deploy [account]        # deploy UpOFT, writes address to
 #                                                             # script/output/prod/5042/Arc-latest.json
-#   ./script/run/deploy_up_oft_arc.sh check-dvns              # on-chain DVN/executor support preflight
-#   ./script/run/deploy_up_oft_arc.sh simulate                # dry-run Arc-side configuration
-#   ./script/run/deploy_up_oft_arc.sh configure [account]
-#   ./script/run/deploy_up_oft_arc.sh simulate-rh             # dry-run RH -> Arc wiring
-#   ./script/run/deploy_up_oft_arc.sh configure-rh [account]
+#   ./script/run/deploy/deploy_up_oft_arc.sh check-dvns              # on-chain DVN/executor support preflight
+#   ./script/run/deploy/deploy_up_oft_arc.sh simulate                # dry-run Arc-side configuration
+#   ./script/run/deploy/deploy_up_oft_arc.sh configure [account]
+#   ./script/run/deploy/deploy_up_oft_arc.sh simulate-rh             # dry-run RH -> Arc wiring
+#   ./script/run/deploy/deploy_up_oft_arc.sh configure-rh [account]
 #
 # The configure/simulate modes read the deployed OFT address from
 # script/output/prod/5042/Arc-latest.json (override with env var ARC_OFT if needed).
@@ -74,7 +74,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$REPO_ROOT"
 
 MODE="${1:-}"
@@ -269,8 +269,8 @@ open(path, "a").write("\n")
 PY
     echo "Recorded in $OUTPUT_FILE"
     echo ""
-    echo "Next: ./script/run/deploy_up_oft_arc.sh simulate"
-    echo "Then: ./script/run/deploy_up_oft_arc.sh configure"
+    echo "Next: ./script/run/deploy/deploy_up_oft_arc.sh simulate"
+    echo "Then: ./script/run/deploy/deploy_up_oft_arc.sh configure"
     echo ""
     echo "Verify on the Arc explorer (Etherscan-compatible legacy API, best-effort; override with ARC_VERIFIER_URL):"
     echo "  forge verify-contract $OFT src/UP/UpOFT.sol:UpOFT --chain 5042 \\"

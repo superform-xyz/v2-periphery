@@ -181,6 +181,13 @@ contract ConfigureSuperVaultCounsel is DeployV2Base {
         console2.log("Configured:", configured);
         console2.log("Already enrolled:", alreadyEnrolled);
         console2.log("Skipped:", skipped);
+        if (skipped > 0 && (configured > 0 || alreadyEnrolled > 0)) {
+            // A partial run is not an error (the all-skipped case below is), but it is the case
+            // a runbook reader is most likely to wave through. Say it loudly.
+            console2.log("");
+            console2.log("WARNING: PARTIAL RUN. Some strategies were skipped. Compare 'Skipped:' against the");
+            console2.log("         fleet entries for this chain before treating the enrollment as complete.");
+        }
         console2.log("NEXT: operator runs grantSessionKeysBatch(...) per configured strategy (step 4)");
 
         // Fail loudly rather than reporting success after doing nothing. A run where every
