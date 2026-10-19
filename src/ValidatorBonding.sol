@@ -134,11 +134,24 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     }
 
     /// @inheritdoc IValidatorBonding
-    function bondFor(address operator, uint256 amount) external {
+    function bondFor(
+        address operator,
+        uint256 amount,
+        address beneficiary,
+        address delegateKey
+    )
+        external
+    {
         BondForApproval memory approval = _bondForApprovals[operator];
         if (approval.bonder != msg.sender) revert NOT_APPROVED_BONDER();
+        // The approval is operator-controlled and overwritable, so the bonder's own transaction
+        // must pin the terms it is paying for. Without this the operator could swap itself in as
+        // beneficiary between the bonder's verification and execution and keep the funded bond.
+        if (approval.beneficiary != beneficiary || approval.delegateKey != delegateKey) {
+            revert APPROVAL_MISMATCH();
+        }
         delete _bondForApprovals[operator];
-        _bondFor(operator, amount, approval.beneficiary, approval.delegateKey);
+        _bondFor(operator, amount, beneficiary, delegateKey);
     }
 
     /// @inheritdoc IValidatorBonding
@@ -146,7 +159,8 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         if (bonder == address(0) || beneficiary == address(0) || delegateKey == address(0)) {
             revert INVALID_ADDRESS();
         }
-        _bondForApprovals[msg.sender] = BondForApproval(bonder, beneficiary, delegateKey);
+        _bondForApprovals[msg.sender] =
+            BondForApproval({ bonder: bonder, beneficiary: beneficiary, delegateKey: delegateKey });
         emit BondForApproved(msg.sender, bonder, beneficiary, delegateKey);
     }
 
@@ -155,7 +169,6 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         delete _bondForApprovals[msg.sender];
         emit BondForApprovalRevoked(msg.sender);
     }
-
 
     /// @inheritdoc IValidatorBonding
     function addBond(address operator, uint256 amount) external nonReentrant {
@@ -218,7 +231,13 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         if (bond_.status != ValidatorStatus.Bonded && bond_.status != ValidatorStatus.Unbonding && !hasResidual) {
             revert INVALID_STATUS();
         }
-        if (bond_.unbondingAmount > 0) revert PENDING_UNBOND_EXISTS();
+        // One pending request at a time, EXCEPT that the beneficiary may supersede it in the
+        // same transaction. Without this, clearing a squatted slot and installing a real request
+        // are two transactions, and an operator re-requesting 1 wei in between blocks the
+        // beneficiary's recall forever. Cancel-then-request is not atomic; this is. The
+        // beneficiary is the payee and the party whose capital is at risk, so it owns the slot.
+        uint256 supersededAmount = bond_.unbondingAmount;
+        if (supersededAmount > 0 && msg.sender != bond_.beneficiary) revert PENDING_UNBOND_EXISTS();
         if (amount > bond_.amount) revert EXCEEDS_BOND_AMOUNT();
 
         // Partial unbond: remaining must be >= minimumBond (skip check for Unbonded residual withdrawal)
@@ -227,6 +246,13 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         }
 
         // Effects
+        // Announce the supersession as a cancellation first, so an indexer following
+        // UnbondRequested/UnbondCancelled never sees two live requests and its state machine
+        // stays consistent with the chain.
+        if (supersededAmount > 0) {
+            emit UnbondCancelled(operator, supersededAmount);
+        }
+
         uint256 deadline = block.timestamp + unbondingPeriod;
         bond_.unbondingAmount = amount;
         bond_.unbondingDeadline = SafeCast.toUint48(deadline);
@@ -234,6 +260,17 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
 
         if (amount == bond_.amount) {
             bond_.status = ValidatorStatus.Unbonding;
+            // Registry holds Bonded and Unbonding operators. Reachable from the Unbonded-with-
+            // residual state (after a slash below minimum), where the record is not enumerated;
+            // without this the operator leaves Unbonded without ever being re-added. add() is a
+            // no-op when already present.
+            _operators.add(operator);
+        } else if (bond_.status == ValidatorStatus.Unbonding) {
+            // Supersession can shrink a full request to a partial one, which means the record is
+            // no longer fully on its way out. Mirrors what cancelUnbond does for the same reason.
+            // Only reachable through the beneficiary path above, since a fresh request cannot find
+            // the record already Unbonding.
+            bond_.status = ValidatorStatus.Bonded;
         }
 
         emit UnbondRequested(operator, amount, deadline);
@@ -261,6 +298,10 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
             _operators.remove(operator);
         } else if (bond_.amount >= minimumBond) {
             bond_.status = ValidatorStatus.Bonded;
+            // Same registry/status pairing as requestUnbond and cancelUnbond. Not reachable from
+            // an unenumerated record today, but keeping it here means the invariant holds by
+            // construction rather than by reachability. add() is a no-op when already present.
+            _operators.add(operator);
         } else {
             // Residual below minimum (e.g. addBond during unbonding added < minimumBond)
             bond_.status = ValidatorStatus.Unbonded;
@@ -277,7 +318,11 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
     function cancelUnbond(address operator) external nonReentrant {
         BondRecord storage bond_ = _bonds[operator];
         if (bond_.unbondingAmount == 0) revert NO_PENDING_UNBOND();
-        _onlyOperatorOrBeneficiary(bond_, operator);
+        // Beneficiary only. See the interface NatSpec for the reasoning: executeUnbond always
+        // pays the beneficiary, so cancelling decides whether the bond stays outstanding rather
+        // than who gets paid, and that is the payee's call. This is what makes the beneficiary's
+        // exit unilateral and what stops a dust request from trapping the single pending slot.
+        if (msg.sender != bond_.beneficiary) revert NOT_BENEFICIARY();
 
         uint256 amount = bond_.unbondingAmount;
 
@@ -288,6 +333,9 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         // If was full unbond, restore to Bonded
         if (bond_.status == ValidatorStatus.Unbonding) {
             bond_.status = ValidatorStatus.Bonded;
+            // Same reason as requestUnbond: keep registry membership in step with status, so a
+            // record that re-enters Bonded is always enumerable. add() is a no-op when present.
+            _operators.add(operator);
         }
 
         emit UnbondCancelled(operator, amount);
@@ -320,8 +368,12 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
             amount = bond_.amount;
         }
 
-        // Proportional slash across bonded and unbonding portions (round up against operator)
-        if (bond_.unbondingAmount > 0) {
+        // Proportional slash across the bonded and unbonding portions. Ceil keeps the slashed
+        // total exact at `amount`; up to 1 wei of it is taken from the unbonding slice rather
+        // than the bonded remainder. Captured before the decrement because the reset below must
+        // know whether there WAS a pending unbond, not whether any of it survived the slash.
+        bool hadPendingUnbond = bond_.unbondingAmount > 0;
+        if (hadPendingUnbond) {
             uint256 slashFromUnbonding =
                 Math.mulDiv(amount, bond_.unbondingAmount, bond_.amount, Math.Rounding.Ceil);
             // Cap to actual unbonding amount (ceil rounding could exceed)
@@ -337,13 +389,18 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         if (bond_.amount < minimumBond) {
             bond_.status = ValidatorStatus.Unbonded;
             _operators.remove(operator);
+            // Dropping below the minimum cancels any pending unbond outright.
+            if (hadPendingUnbond) bond_.unbondingAmount = 0;
+        }
 
-            // Reset unbonding state when slash pushes below minimum
-            if (bond_.unbondingAmount > 0) {
-                bond_.unbondingAmount = 0;
-                bond_.unbondingDeadline = 0;
-                bond_.unbondingInitiator = address(0);
-            }
+        // Restore the documented sentinel whenever the request is gone: no pending unbond means
+        // no deadline and no initiator. This sits OUTSIDE the below-minimum branch on purpose.
+        // Ceil rounding can consume a small unbonding bucket entirely while the bond stays well
+        // above the minimum (a 1 wei slice is fully taken by any slash), and resetting only on
+        // the below-minimum path left a deadline stranded on a record with nothing pending.
+        if (hadPendingUnbond && bond_.unbondingAmount == 0) {
+            bond_.unbondingDeadline = 0;
+            bond_.unbondingInitiator = address(0);
         }
 
         emit Slashed(operator, amount, recipient, bond_.amount);
@@ -558,6 +615,11 @@ contract ValidatorBonding is IValidatorBonding, AccessControl, ReentrancyGuard {
         bond_.beneficiary = beneficiary;
         bond_.delegateKey = delegateKey;
         bond_.status = ValidatorStatus.Bonded;
+        // A prior tenure can leave these set if it ended by a slash that consumed the unbonding
+        // bucket exactly. Clearing here means a fresh bond always starts from the documented
+        // sentinel, whatever the previous record looked like.
+        bond_.unbondingDeadline = 0;
+        bond_.unbondingInitiator = address(0);
         _operators.add(operator);
 
         emit Bonded(operator, beneficiary, msg.sender, delegateKey, amount);
