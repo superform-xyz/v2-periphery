@@ -545,7 +545,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: ETH_USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false);
+        // Use skip-safe variant: skips if Odos ETH API is unavailable instead of reverting
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false, '[]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -605,7 +607,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: ETH_USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false);
+        // Use skip-safe variant: skips if Odos ETH API is unavailable instead of reverting
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false, '[]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -1616,7 +1620,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: ETH_USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false);
+        // Use skip-safe variant: skips if Odos ETH API is unavailable instead of reverting
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false, '[]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
@@ -1669,7 +1675,9 @@ contract SuperBankSwapIntegration is Test, OdosAPIParser {
         QuoteOutputToken[] memory outputTokens = new QuoteOutputToken[](1);
         outputTokens[0] = QuoteOutputToken({ tokenAddress: ETH_USDC, proportion: 1 });
 
-        string memory pathId = surlCallQuoteV2(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false);
+        // Use skip-safe variant: skips if Odos ETH API is unavailable instead of reverting
+        string memory pathId =
+            _surlCallQuoteV2WithBlacklist(inputTokens, outputTokens, SUPER_BANK, ETH_CHAIN_ID, false, '[]');
         string memory assembledHex = surlCallAssemble(pathId, SUPER_BANK);
 
         OdosDecodedSwap memory decoded = decodeOdosSwapCalldata(fromHex(assembledHex));
