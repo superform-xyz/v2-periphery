@@ -180,6 +180,10 @@ class SuperBankTreeBuilder:
             elif arg_type == 'zero_address':
                 addresses = [ZERO_ADDRESS]
 
+            elif arg_type == 'uint256':
+                # Constant values from the hook config (e.g. a health-check minHealthFactor), one leaf each
+                addresses = list(arg_info.values or [])
+
             elif arg_type == 'beneficiary':
                 # For SuperBank, beneficiary = SuperBank address
                 addresses = [self.superbank_address]

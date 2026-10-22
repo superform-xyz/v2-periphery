@@ -15,6 +15,25 @@ from eth_utils import to_checksum_address
 from deployments_resolver import get_chain_deployments
 
 
+UINT256_MAX = (1 << 256) - 1
+
+
+def parse_uint256(value: Any) -> int:
+    """Parse a uint256 given as int, decimal string or 0x-hex string; reject bools, negatives, overflow."""
+    if isinstance(value, bool):
+        raise ValueError(f"uint256 value must not be a bool: {value!r}")
+    if isinstance(value, int):
+        parsed = value
+    elif isinstance(value, str):
+        text = value.strip().replace("_", "")
+        parsed = int(text, 16) if text.lower().startswith("0x") else int(text, 10)
+    else:
+        raise ValueError(f"uint256 value must be an int or string, got {type(value).__name__}: {value!r}")
+    if parsed < 0 or parsed > UINT256_MAX:
+        raise ValueError(f"uint256 value out of range: {value!r}")
+    return parsed
+
+
 @dataclass
 class ArgFilter:
     """Filter configuration for hook arguments.
@@ -33,15 +52,26 @@ class HookArgInfo:
     """Information about a hook argument for merkle tree generation."""
 
     name: str
-    type: str  # 'token', 'yieldSource', 'beneficiary', 'staking', 'contract', 'feeRecipient'
+    type: str  # 'token', 'yieldSource', 'beneficiary', 'staking', 'contract', 'feeRecipient', 'uint256'
     subtype: Optional[str] = None  # For contract type: 'pendle_market', 'swap', 'limit_order', etc.
     filter: Optional[ArgFilter] = None  # Filter configuration
+    # For uint256 type: the explicit constant values to enumerate (decimal or 0x-hex strings / ints).
+    # Packed as a 32-byte big-endian word, matching abi.encodePacked(uint256). One leaf per value.
+    values: Optional[List[Any]] = None
 
     def __post_init__(self):
         """Validate argument type and convert filter dict to ArgFilter."""
-        valid_types = {"token", "yieldSource", "beneficiary", "staking", "contract", "feeRecipient"}
+        valid_types = {"token", "yieldSource", "beneficiary", "staking", "contract", "feeRecipient", "uint256"}
         if self.type not in valid_types:
             raise ValueError(f"Invalid argument type '{self.type}'. Valid types: {valid_types}")
+
+        # uint256 type requires explicit values; validate them up front
+        if self.type == "uint256":
+            if not self.values:
+                raise ValueError(f"uint256 argument '{self.name}' requires a non-empty 'values' list")
+            self.values = [str(parse_uint256(v)) for v in self.values]
+        elif self.values:
+            raise ValueError(f"'values' is only valid for uint256 arguments (arg '{self.name}')")
 
         # Contract type requires subtype
         if self.type == "contract" and not self.subtype:

@@ -57,6 +57,35 @@ See `roots_to_propose.md` for the current per-chain hook/root table and ready-ma
 When hooks are redeployed, update the relevant hook addresses there (authoritative sources:
 `script/output/{env}/{chainId}/*-latest.json` here and in v2-core) before regenerating.
 
+## Hook argument types
+
+Each hook's `args` list in `config/superbank_hook_config.json` is packed in order to reproduce the hook's on-chain
+`inspect()` output (`abi.encodePacked`). Supported `type`s:
+
+| type | source of values | packed as |
+|---|---|---|
+| `token`, `yieldSource`, `feeRecipient` | `address_registry.json` entries (tag-filterable) | 20 bytes |
+| `contract` (+ `subtype`) | contract registry | 20 bytes |
+| `superbank`, `beneficiary` | the SuperBank address | 20 bytes |
+| `zero_address` | `address(0)` | 20 bytes |
+| `uint256` (+ `values`) | explicit constants listed in the config, one leaf per value | 32-byte big-endian word |
+
+`uint256` exists for hooks whose `inspect()` commits a non-address parameter, e.g. the health-check guards'
+`minHealthFactor` (v2-core PR #1037): a leaf there is `(marketKey, ..., lltv, minHealthFactor)`, so the threshold must
+be enumerated explicitly:
+
+```json
+"MorphoHealthCheckHook": {
+  "args": [
+    { "name": "marketKey", "type": "contract", "subtype": "morpho_market" },
+    ...
+    { "name": "minHealthFactor", "type": "uint256", "values": ["1500000000000000000", "2000000000000000000"] }
+  ]
+}
+```
+
+Values may be decimal or `0x`-hex strings (or ints) and are range-checked; the leaf changes whenever the value does.
+
 ## Known state / caveats (as of 2026-07-29)
 
 - `config/superbank_hook_config.json` includes Base WETH (`0x4200…0006`) and Base cbBTC (`0xcbB7…3Bf`)

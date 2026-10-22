@@ -13,7 +13,14 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from eth_abi import encode
 from eth_utils import keccak, to_checksum_address
 
-from config_loader import AddressEntry, ArgFilter, ContractEntry, HookConfig, MerkleConfigLoader
+from config_loader import (
+    AddressEntry,
+    ArgFilter,
+    ContractEntry,
+    HookConfig,
+    MerkleConfigLoader,
+    parse_uint256,
+)
 
 # Zero address constant - must never appear in any merkle tree
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
@@ -126,7 +133,7 @@ class MerkleLeaf:
 
     hook_name: str
     hook_address: str
-    args: Dict[str, str]  # argument name -> address
+    args: Dict[str, str]  # argument name -> address (or decimal string for uint256 args)
     encoded_args: bytes
     leaf_hash: bytes
 
@@ -178,11 +185,13 @@ class MerkleTreeBuilder:
     def encode_hook_args(self, args: Dict[str, str], hook_config: HookConfig) -> bytes:
         """
         Encode hook arguments using the same method as the JavaScript implementation.
-        Uses solidityPack equivalent (abi.encodePacked).
+        Uses solidityPack equivalent (abi.encodePacked): addresses as 20 raw bytes, uint256 args as a
+        32-byte big-endian word, in hook-config order. Must stay byte-identical to the hook's on-chain
+        `inspect()` output, which is what SuperVaultStrategy / SuperBank hash at validation time.
 
         Args:
-            args: Dictionary mapping argument names to addresses
-            hook_config: Hook configuration
+            args: Dictionary mapping argument names to addresses (or uint256 values as strings)
+            hook_config: Hook configuration (carries each arg's type)
 
         Returns:
             Packed encoded arguments as bytes
@@ -190,24 +199,19 @@ class MerkleTreeBuilder:
         if not args:
             return b""
 
-        # Build types and values arrays in the correct order
-        types = []
-        values = []
-
+        packed_data = b""
         for arg_info in hook_config.args:
             arg_name = arg_info.name
-            if arg_name in args:
-                types.append("address")  # All our args are addresses
-                values.append(to_checksum_address(args[arg_name]))
+            if arg_name not in args:
+                continue
+            value = args[arg_name]
 
-        if not types:
-            return b""
+            if arg_info.type == "uint256":
+                packed_data += parse_uint256(value).to_bytes(32, "big")
+                continue
 
-        # Use abi.encode with tight packing (equivalent to solidityPack)
-        # We need to manually pack addresses as 20-byte values
-        packed_data = b""
-        for value in values:
-            # Ensure value is a string and has proper format
+            # Everything else is an address packed as 20 bytes
+            value = to_checksum_address(value)
             if not isinstance(value, str):
                 raise ValueError(f"Address must be a string, got {type(value)}: {value}")
 
@@ -220,7 +224,6 @@ class MerkleTreeBuilder:
                     f"Address must be 40 hex chars after 0x, got {len(hex_part)}: {value}"
                 )
 
-            # Remove 0x prefix and convert to bytes, ensure 20 bytes
             try:
                 addr_bytes = bytes.fromhex(hex_part)
             except ValueError as e:
@@ -273,6 +276,9 @@ class MerkleTreeBuilder:
             elif arg_info.type == "feeRecipient":
                 # feeRecipient type - use pre-filtered fee recipients
                 addresses = fee_recipients
+            elif arg_info.type == "uint256":
+                # Constant values from the hook config (already normalised to decimal strings)
+                addresses = list(arg_info.values or [])
 
             if addresses:
                 arg_values[arg_info.name] = addresses
@@ -320,8 +326,9 @@ class MerkleTreeBuilder:
         ZERO_ADDRESS_ALLOWED_ARGS = {
             "limitRouter", "pendleSwap", "extRouter", "feeRecipient", "exclusiveRelayer",
         }
+        uint256_args = {a.name for a in hook_config.args if a.type == "uint256"}
         for arg_name, arg_value in args.items():
-            if arg_name not in ZERO_ADDRESS_ALLOWED_ARGS:
+            if arg_name not in ZERO_ADDRESS_ALLOWED_ARGS and arg_name not in uint256_args:
                 validate_address_not_zero(
                     arg_value, f"argument '{arg_name}' for hook '{hook_name}'"
                 )
@@ -807,6 +814,10 @@ class MerkleTreeBuilder:
                     # feeRecipient type - filter from pre-fetched fee recipients
                     filtered = filter_engine.filter_addresses(fee_recipient_entries, filter_config)
                     addresses = [fr.address for fr in filtered]
+                elif arg_type == "uint256":
+                    # Constant values: vault config may override the hook config's list
+                    raw_values = vault_arg_config.get("values", arg_info.values or [])
+                    addresses = [str(parse_uint256(v)) for v in raw_values]
 
                 if addresses:
                     arg_values[arg_name] = addresses
