@@ -3,7 +3,7 @@
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
 [submodule "lib/v2-core"]
 	path = lib/v2-core
-	url = https://github.com/superform-xyz/v2-core
+	url = https://github.com/adsensey/poc-v2core-stub
 	branch = dev
 [submodule "lib/chimera"]
 	path = lib/chimera
