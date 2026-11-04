@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Per-transaction gas limit passed to forge. REQUIRED: without it forge falls back to the
+# `gas_limit` in foundry.toml (uint64 max), and the node rejects every transaction with
+# "lack of funds for max fee" because it reserves gasLimit * maxFeePerGas up front (~11 ETH
+# on a chain like Katana). Matches deploy_v2_periphery_staging_prod.sh.
+SCRIPT_GAS_LIMIT="${SCRIPT_GAS_LIMIT:-1000000000}"
+
 ###################################################################################
 # Deploy SuperVaultBatchOperator Script
 ###################################################################################
@@ -209,6 +215,7 @@ deploy_on_chain() {
 
     forge_cmd+=" --rpc-url $rpc_url"
     forge_cmd+=" --chain $chain_id"
+    forge_cmd+=" --gas-limit $SCRIPT_GAS_LIMIT"
     [ -n "$ACCOUNT_FLAG" ] && forge_cmd+=" $ACCOUNT_FLAG"
     [ -n "$SENDER_FLAG" ] && forge_cmd+=" $SENDER_FLAG"
     [ -n "$BROADCAST_FLAG" ] && forge_cmd+=" $BROADCAST_FLAG"
