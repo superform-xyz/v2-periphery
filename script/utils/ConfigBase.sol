@@ -96,6 +96,13 @@ abstract contract ConfigBase is Constants {
     ///         Deploy via script/run/deploy_superform_gas_oracle.sh before the periphery run.
     address internal constant ORACLE_GAS_TO_WEI_ARC = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;
 
+    /// @notice Gas to WEI oracle on Katana (SuperformGasOracle - keeper updated).
+    ///         Deterministic address (default initial price, DEPLOYER owner) - identical to
+    ///         Base/HyperEVM/Flare/BNB/Arc. Verified live on chain 747474 (reports
+    ///         "Superform Fast Gas / Gwei"). Deploy via script/run/deploy_superform_gas_oracle.sh
+    ///         before the periphery run.
+    address internal constant ORACLE_GAS_TO_WEI_KATANA = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;
+
     /// @notice ETH/USD oracle on Mainnet
     address internal constant ORACLE_ETH_USD_MAINNET = 0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419;
 
@@ -118,6 +125,10 @@ abstract contract ConfigBase is Constants {
     /// @notice ETH/USD oracle on RH (Chainlink - 8 decimals)
     address internal constant ORACLE_ETH_USD_RH = 0x78F3556b67E17Df817D51Ef5a990cDaF09E8d3A9;
 
+    /// @notice ETH/USD oracle on Katana (Chainlink aggregator proxy - 8 decimals).
+    ///         Verified on chain 747474: description "ETH / USD", phaseId 1, Chainlink-owned.
+    address internal constant ORACLE_ETH_USD_KATANA = 0x7BdBDB772f4a073BadD676A567C6ED82049a8eEE;
+
     /// @notice Base Sequencer Uptime Feed (required for SuperOracleL2)
     address internal constant ORACLE_SEQUENCER_UPTIME_BASE = 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433;
 
@@ -137,6 +148,10 @@ abstract contract ConfigBase is Constants {
     // Arc: deterministic UpOFT address (same CREATE2 salt, LZ endpoint 0x6F47...DD5B and v2-supervaults delegate
     // as RH, hence the same address as RH). Deploy via script/run/deploy_up_oft_arc.sh before the periphery run.
     address internal constant UP_TOKEN_ARC = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E; // UpOFT on Arc
+    // Katana: deterministic UpOFT address (same CREATE2 salt, LZ endpoint 0x6F47...DD5B and
+    // v2-supervaults delegate as RH/Arc, hence the same address). Deployed and verified on chain
+    // 747474; Katana-side pathways wired via script/run/deploy_up_oft_katana.sh configure.
+    address internal constant UP_TOKEN_KATANA = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E; // UpOFT on Katana
     int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
     uint8 internal constant UP_PRICE_DECIMALS = 18;
     bytes32 internal constant PROVIDER_CHAINLINK = keccak256("CHAINLINK");
@@ -177,6 +192,9 @@ abstract contract ConfigBase is Constants {
 
     /// @notice UPKEEP_TOKEN on Arc (UpOFT)
     address internal constant UPKEEP_TOKEN_ARC = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
+
+    /// @notice UPKEEP_TOKEN on Katana (UpOFT)
+    address internal constant UPKEEP_TOKEN_KATANA = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E;
 
     /*//////////////////////////////////////////////////////////////
                             GAS CONFIGURATION
@@ -221,6 +239,7 @@ abstract contract ConfigBase is Constants {
         chainNames[FLARE_CHAIN_ID] = FLARE_KEY;
         chainNames[ROBINHOOD_CHAIN_ID] = ROBINHOOD_KEY;
         chainNames[ARC_CHAIN_ID] = ARC_KEY; // Circle Arc L1 (chain 5042)
+        chainNames[KATANA_CHAIN_ID] = KATANA_KEY; // Katana mainnet (chain 747474)
         chainNames[PLATABERGET_CHAIN_ID] = PLATABERGET_KEY; // Glamsterdam testnet
 
         // ===== COMMON CONFIGURATION =====

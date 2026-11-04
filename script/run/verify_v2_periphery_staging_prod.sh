@@ -499,8 +499,10 @@ generate_constructor_args() {
             local lz_endpoint="$LZ_ENDPOINT"
             if [ "$chain_id" = "999" ]; then
                 lz_endpoint="$LZ_ENDPOINT_HYPEREVM"
-            elif [ "$chain_id" = "4663" ] || [ "$chain_id" = "5042" ]; then
-                # Arc shares its EndpointV2 address with RH
+            elif [ "$chain_id" = "4663" ] || [ "$chain_id" = "5042" ] || [ "$chain_id" = "747474" ]; then
+                # Arc and Katana share their EndpointV2 address with RH. Without this, UpOFT on
+                # those chains is submitted with the canonical 0x1a44... endpoint and verification
+                # fails on a constructor-args mismatch.
                 lz_endpoint="$LZ_ENDPOINT_RH"
             fi
             echo "$(cast abi-encode "constructor(address,address)" "$lz_endpoint" "$DEPLOYER")"
@@ -645,7 +647,8 @@ verify_contract() {
         # forge only knows an Etherscan API URL for chains in its built-in list. Arc (5042) IS
         # served by Etherscan V2 but is absent from that list, and forge resolves the chain (from
         # --chain, or failing that from --rpc-url) before it ever looks at --verifier-url. Both
-        # flags must therefore be OMITTED for Arc and the endpoint given explicitly.
+        # flags must therefore be OMITTED for Arc and the endpoint given explicitly. Katana
+        # (747474) needs none of this: forge knows it as `katana`.
         local verify_cmd
         case "$chain_id" in
             5042)

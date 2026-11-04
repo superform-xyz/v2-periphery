@@ -6,24 +6,25 @@
 # Define production networks
 # Format: "CHAIN_ID:NetworkName:RPC_VAR"
 NETWORKS=(
-    # Only Arc (5042) is active: the other chains are already deployed. Uncomment a chain to
-    # include it again in the deploy/check/estimate loops of the staging_prod runners.
-    # "1:Ethereum:ETH_MAINNET"
-    # "8453:Base:BASE_MAINNET"
-    # "56:BNB:BSC_MAINNET"
-    # "42161:Arbitrum:ARBITRUM_MAINNET"
-    # "10:Optimism:OPTIMISM_MAINNET"
-    # "137:Polygon:POLYGON_MAINNET"
-    # "130:Unichain:UNICHAIN_MAINNET"
-    # "43114:Avalanche:AVALANCHE_MAINNET"
-    # "80094:Berachain:BERACHAIN_MAINNET"
-    # "146:Sonic:SONIC_MAINNET"
-    # "100:Gnosis:GNOSIS_MAINNET"
-    # "480:Worldchain:WORLDCHAIN_MAINNET"
-    # "999:HyperEVM:HYPEREVM_MAINNET"
-    # "14:Flare:FLARE_MAINNET"
-    # "4663:RH:RH_MAINNET"
+    # All production networks are active. Comment a chain out to exclude it from the
+    # deploy/check/estimate loops of the staging_prod runners.
+    "1:Ethereum:ETH_MAINNET"
+    "8453:Base:BASE_MAINNET"
+    "56:BNB:BSC_MAINNET"
+    "42161:Arbitrum:ARBITRUM_MAINNET"
+    "10:Optimism:OPTIMISM_MAINNET"
+    "137:Polygon:POLYGON_MAINNET"
+    "130:Unichain:UNICHAIN_MAINNET"
+    "43114:Avalanche:AVALANCHE_MAINNET"
+    "80094:Berachain:BERACHAIN_MAINNET"
+    "146:Sonic:SONIC_MAINNET"
+    "100:Gnosis:GNOSIS_MAINNET"
+    "480:Worldchain:WORLDCHAIN_MAINNET"
+    "999:HyperEVM:HYPEREVM_MAINNET"
+    "14:Flare:FLARE_MAINNET"
+    "4663:RH:RH_MAINNET"
     "5042:Arc:ARC_MAINNET"
+    "747474:Katana:KATANA_MAINNET"
 )
 
 # Network name mapping function
@@ -39,33 +40,33 @@ get_network_name() {
         56)
             echo "BNB"
             ;;
-        # 42161)
-        #     echo "Arbitrum"
-        #     ;;
-        # 10)
-        #     echo "Optimism"
-        #     ;;
-        # 137)
-        #     echo "Polygon"
-        #     ;;
-        # 130)
-        #     echo "Unichain"
-        #     ;;
-        # 43114)
-        #     echo "Avalanche"
-        #     ;;
-        # 80094)
-        #     echo "Berachain"
-        #     ;;
-        # 146)
-        #     echo "Sonic"
-        #     ;;
-        # 100)
-        #     echo "Gnosis"
-        #     ;;
-        # 480)
-        #     echo "Worldchain"
-        #     ;;
+        42161)
+            echo "Arbitrum"
+            ;;
+        10)
+            echo "Optimism"
+            ;;
+        137)
+            echo "Polygon"
+            ;;
+        130)
+            echo "Unichain"
+            ;;
+        43114)
+            echo "Avalanche"
+            ;;
+        80094)
+            echo "Berachain"
+            ;;
+        146)
+            echo "Sonic"
+            ;;
+        100)
+            echo "Gnosis"
+            ;;
+        480)
+            echo "Worldchain"
+            ;;
         999)
             echo "HyperEVM"
             ;;
@@ -77,6 +78,9 @@ get_network_name() {
             ;;
         5042)
             echo "Arc"
+            ;;
+        747474)
+            echo "Katana"
             ;;
         *)
             echo "ERROR: Unknown production network ID: $network_id" >&2
@@ -98,33 +102,33 @@ get_rpc_var() {
         56)
             echo "BSC_MAINNET"
             ;;
-        # 42161)
-        #     echo "ARBITRUM_MAINNET"
-        #     ;;
-        # 10)
-        #     echo "OPTIMISM_MAINNET"
-        #     ;;
-        # 137)
-        #     echo "POLYGON_MAINNET"
-        #     ;;
-        # 130)
-        #     echo "UNICHAIN_MAINNET"
-        #     ;;
-        # 43114)
-        #     echo "AVALANCHE_MAINNET"
-        #     ;;
-        # 80094)
-        #     echo "BERACHAIN_MAINNET"
-        #     ;;
-        # 146)
-        #     echo "SONIC_MAINNET"
-        #     ;;
-        # 100)
-        #     echo "GNOSIS_MAINNET"
-        #     ;;
-        # 480)
-        #     echo "WORLDCHAIN_MAINNET"
-        #     ;;
+        42161)
+            echo "ARBITRUM_MAINNET"
+            ;;
+        10)
+            echo "OPTIMISM_MAINNET"
+            ;;
+        137)
+            echo "POLYGON_MAINNET"
+            ;;
+        130)
+            echo "UNICHAIN_MAINNET"
+            ;;
+        43114)
+            echo "AVALANCHE_MAINNET"
+            ;;
+        80094)
+            echo "BERACHAIN_MAINNET"
+            ;;
+        146)
+            echo "SONIC_MAINNET"
+            ;;
+        100)
+            echo "GNOSIS_MAINNET"
+            ;;
+        480)
+            echo "WORLDCHAIN_MAINNET"
+            ;;
         999)
             echo "HYPEREVM_MAINNET"
             ;;
@@ -136,6 +140,9 @@ get_rpc_var() {
             ;;
         5042)
             echo "ARC_MAINNET"
+            ;;
+        747474)
+            echo "KATANA_MAINNET"
             ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
@@ -157,33 +164,33 @@ get_rpc_url() {
         56)
             echo "$BSC_MAINNET"
             ;;
-        # 42161)
-        #     echo "$ARBITRUM_MAINNET"
-        #     ;;
-        # 10)
-        #     echo "$OPTIMISM_MAINNET"
-        #     ;;
-        # 137)
-        #     echo "$POLYGON_MAINNET"
-        #     ;;
-        # 130)
-        #     echo "$UNICHAIN_MAINNET"
-        #     ;;
-        # 43114)
-        #     echo "$AVALANCHE_MAINNET"
-        #     ;;
-        # 80094)
-        #     echo "$BERACHAIN_MAINNET"
-        #     ;;
-        # 146)
-        #     echo "$SONIC_MAINNET"
-        #     ;;
-        # 100)
-        #     echo "$GNOSIS_MAINNET"
-        #     ;;
-        # 480)
-        #     echo "$WORLDCHAIN_MAINNET"
-        #     ;;
+        42161)
+            echo "$ARBITRUM_MAINNET"
+            ;;
+        10)
+            echo "$OPTIMISM_MAINNET"
+            ;;
+        137)
+            echo "$POLYGON_MAINNET"
+            ;;
+        130)
+            echo "$UNICHAIN_MAINNET"
+            ;;
+        43114)
+            echo "$AVALANCHE_MAINNET"
+            ;;
+        80094)
+            echo "$BERACHAIN_MAINNET"
+            ;;
+        146)
+            echo "$SONIC_MAINNET"
+            ;;
+        100)
+            echo "$GNOSIS_MAINNET"
+            ;;
+        480)
+            echo "$WORLDCHAIN_MAINNET"
+            ;;
         999)
             echo "$HYPEREVM_MAINNET"
             ;;
@@ -195,6 +202,9 @@ get_rpc_url() {
             ;;
         5042)
             echo "$ARC_MAINNET"
+            ;;
+        747474)
+            echo "$KATANA_MAINNET"
             ;;
         *)
             echo "ERROR: Unknown production network ID for RPC: $network_id" >&2
@@ -251,69 +261,69 @@ load_rpc_urls_ci() {
         failed_rpcs+=("BSC_RPC_URL")
     fi
 
-    # echo "  • Loading Arbitrum RPC..."
-    # if [[ -n "${ARBITRUM_RPC_URL:-}" ]]; then
-    #     export ARBITRUM_MAINNET="$ARBITRUM_RPC_URL"
-    # else
-    #     failed_rpcs+=("ARBITRUM_RPC_URL")
-    # fi
+    echo "  • Loading Arbitrum RPC..."
+    if [[ -n "${ARBITRUM_RPC_URL:-}" ]]; then
+        export ARBITRUM_MAINNET="$ARBITRUM_RPC_URL"
+    else
+        failed_rpcs+=("ARBITRUM_RPC_URL")
+    fi
 
-    # # Load production-only networks from environment variables
-    # echo "  • Loading Optimism RPC..."
-    # if [[ -n "${OPTIMISM_RPC_URL:-}" ]]; then
-    #     export OPTIMISM_MAINNET="$OPTIMISM_RPC_URL"
-    # else
-    #     failed_rpcs+=("OPTIMISM_RPC_URL")
-    # fi
+    # Load production-only networks from environment variables
+    echo "  • Loading Optimism RPC..."
+    if [[ -n "${OPTIMISM_RPC_URL:-}" ]]; then
+        export OPTIMISM_MAINNET="$OPTIMISM_RPC_URL"
+    else
+        failed_rpcs+=("OPTIMISM_RPC_URL")
+    fi
 
-    # echo "  • Loading Polygon RPC..."
-    # if [[ -n "${POLYGON_RPC_URL:-}" ]]; then
-    #     export POLYGON_MAINNET="$POLYGON_RPC_URL"
-    # else
-    #     failed_rpcs+=("POLYGON_RPC_URL")
-    # fi
+    echo "  • Loading Polygon RPC..."
+    if [[ -n "${POLYGON_RPC_URL:-}" ]]; then
+        export POLYGON_MAINNET="$POLYGON_RPC_URL"
+    else
+        failed_rpcs+=("POLYGON_RPC_URL")
+    fi
 
-    # echo "  • Loading Unichain RPC..."
-    # if [[ -n "${UNICHAIN_RPC_URL:-}" ]]; then
-    #     export UNICHAIN_MAINNET="$UNICHAIN_RPC_URL"
-    # else
-    #     failed_rpcs+=("UNICHAIN_RPC_URL")
-    # fi
+    echo "  • Loading Unichain RPC..."
+    if [[ -n "${UNICHAIN_RPC_URL:-}" ]]; then
+        export UNICHAIN_MAINNET="$UNICHAIN_RPC_URL"
+    else
+        failed_rpcs+=("UNICHAIN_RPC_URL")
+    fi
 
-    # echo "  • Loading Avalanche RPC..."
-    # if [[ -n "${AVALANCHE_RPC_URL:-}" ]]; then
-    #     export AVALANCHE_MAINNET="$AVALANCHE_RPC_URL"
-    # else
-    #     failed_rpcs+=("AVALANCHE_RPC_URL")
-    # fi
+    echo "  • Loading Avalanche RPC..."
+    if [[ -n "${AVALANCHE_RPC_URL:-}" ]]; then
+        export AVALANCHE_MAINNET="$AVALANCHE_RPC_URL"
+    else
+        failed_rpcs+=("AVALANCHE_RPC_URL")
+    fi
 
-    # echo "  • Loading Berachain RPC..."
-    # if [[ -n "${BERACHAIN_RPC_URL:-}" ]]; then
-    #     export BERACHAIN_MAINNET="$BERACHAIN_RPC_URL"
-    # else
-    #     failed_rpcs+=("BERACHAIN_RPC_URL")
-    # fi
+    echo "  • Loading Berachain RPC..."
+    if [[ -n "${BERACHAIN_RPC_URL:-}" ]]; then
+        export BERACHAIN_MAINNET="$BERACHAIN_RPC_URL"
+    else
+        failed_rpcs+=("BERACHAIN_RPC_URL")
+    fi
 
-    # echo "  • Loading Sonic RPC..."
-    # if [[ -n "${SONIC_RPC_URL:-}" ]]; then
-    #     export SONIC_MAINNET="$SONIC_RPC_URL"
-    # else
-    #     failed_rpcs+=("SONIC_RPC_URL")
-    # fi
+    echo "  • Loading Sonic RPC..."
+    if [[ -n "${SONIC_RPC_URL:-}" ]]; then
+        export SONIC_MAINNET="$SONIC_RPC_URL"
+    else
+        failed_rpcs+=("SONIC_RPC_URL")
+    fi
 
-    # echo "  • Loading Gnosis RPC..."
-    # if [[ -n "${GNOSIS_RPC_URL:-}" ]]; then
-    #     export GNOSIS_MAINNET="$GNOSIS_RPC_URL"
-    # else
-    #     failed_rpcs+=("GNOSIS_RPC_URL")
-    # fi
+    echo "  • Loading Gnosis RPC..."
+    if [[ -n "${GNOSIS_RPC_URL:-}" ]]; then
+        export GNOSIS_MAINNET="$GNOSIS_RPC_URL"
+    else
+        failed_rpcs+=("GNOSIS_RPC_URL")
+    fi
 
-    # echo "  • Loading Worldchain RPC..."
-    # if [[ -n "${WORLDCHAIN_RPC_URL:-}" ]]; then
-    #     export WORLDCHAIN_MAINNET="$WORLDCHAIN_RPC_URL"
-    # else
-    #     failed_rpcs+=("WORLDCHAIN_RPC_URL")
-    # fi
+    echo "  • Loading Worldchain RPC..."
+    if [[ -n "${WORLDCHAIN_RPC_URL:-}" ]]; then
+        export WORLDCHAIN_MAINNET="$WORLDCHAIN_RPC_URL"
+    else
+        failed_rpcs+=("WORLDCHAIN_RPC_URL")
+    fi
 
     echo "  • Loading HyperEVM RPC..."
     if [[ -n "${HYPEREVM_RPC_URL:-}" ]]; then
@@ -347,6 +357,14 @@ load_rpc_urls_ci() {
         export ARC_MAINNET="https://rpc.mainnet.arc.io"
     fi
 
+    echo "  • Loading Katana RPC..."
+    if [[ -n "${KATANA_RPC_URL:-}" ]]; then
+        export KATANA_MAINNET="$KATANA_RPC_URL"
+    else
+        echo "  • KATANA_RPC_URL not set, using default public RPC"
+        export KATANA_MAINNET="https://rpc.katana.network"
+    fi
+
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from environment:"
         for failed_rpc in "${failed_rpcs[@]}"; do
@@ -356,7 +374,7 @@ load_rpc_urls_ci() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base, BSC, HyperEVM, Flare, RH, Arc)"
+    echo "✅ Production RPC URLs loaded successfully from environment (Ethereum, Base, BSC, Arbitrum, Optimism, Polygon, Unichain, Avalanche, Berachain, Sonic, Gnosis, Worldchain, HyperEVM, Flare, RH, Arc, Katana)"
 }
 
 # Load RPC URLs from credential manager for all production networks
@@ -391,51 +409,51 @@ load_rpc_urls() {
         export BSC_MAINNET
     fi
 
-    # echo "  • Loading Arbitrum RPC..."
-    # if ! export ARBITRUM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ARBITRUM_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("ARBITRUM_RPC_URL")
-    # fi
+    echo "  • Loading Arbitrum RPC..."
+    if ! export ARBITRUM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ARBITRUM_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("ARBITRUM_RPC_URL")
+    fi
 
-    # # Load production-only networks
-    # echo "  • Loading Optimism RPC..."
-    # if ! export OPTIMISM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/OPTIMISM_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("OPTIMISM_RPC_URL")
-    # fi
+    # Load production-only networks
+    echo "  • Loading Optimism RPC..."
+    if ! export OPTIMISM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/OPTIMISM_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("OPTIMISM_RPC_URL")
+    fi
 
-    # echo "  • Loading Polygon RPC..."
-    # if ! export POLYGON_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/POLYGON_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("POLYGON_RPC_URL")
-    # fi
+    echo "  • Loading Polygon RPC..."
+    if ! export POLYGON_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/POLYGON_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("POLYGON_RPC_URL")
+    fi
 
-    # echo "  • Loading Unichain RPC..."
-    # if ! export UNICHAIN_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/UNICHAIN_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("UNICHAIN_RPC_URL")
-    # fi
+    echo "  • Loading Unichain RPC..."
+    if ! export UNICHAIN_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/UNICHAIN_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("UNICHAIN_RPC_URL")
+    fi
 
-    # echo "  • Loading Avalanche RPC..."
-    # if ! export AVALANCHE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/AVALANCHE_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("AVALANCHE_RPC_URL")
-    # fi
+    echo "  • Loading Avalanche RPC..."
+    if ! export AVALANCHE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/AVALANCHE_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("AVALANCHE_RPC_URL")
+    fi
 
-    # echo "  • Loading Berachain RPC..."
-    # if ! export BERACHAIN_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BERACHAIN_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("BERACHAIN_RPC_URL")
-    # fi
+    echo "  • Loading Berachain RPC..."
+    if ! export BERACHAIN_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BERACHAIN_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("BERACHAIN_RPC_URL")
+    fi
 
-    # echo "  • Loading Sonic RPC..."
-    # if ! export SONIC_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/SONIC_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("SONIC_RPC_URL")
-    # fi
+    echo "  • Loading Sonic RPC..."
+    if ! export SONIC_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/SONIC_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("SONIC_RPC_URL")
+    fi
 
-    # echo "  • Loading Gnosis RPC..."
-    # if ! export GNOSIS_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/GNOSIS_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("GNOSIS_RPC_URL")
-    # fi
+    echo "  • Loading Gnosis RPC..."
+    if ! export GNOSIS_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/GNOSIS_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("GNOSIS_RPC_URL")
+    fi
 
-    # echo "  • Loading Worldchain RPC..."
-    # if ! export WORLDCHAIN_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/WORLDCHAIN_RPC_URL/credential 2>/dev/null); then
-    #     failed_rpcs+=("WORLDCHAIN_RPC_URL")
-    # fi
+    echo "  • Loading Worldchain RPC..."
+    if ! export WORLDCHAIN_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/WORLDCHAIN_RPC_URL/credential 2>/dev/null); then
+        failed_rpcs+=("WORLDCHAIN_RPC_URL")
+    fi
 
     echo "  • Loading HyperEVM RPC..."
     HYPEREVM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/HYPEREVM_RPC_URL/credential 2>/dev/null) || true
@@ -473,6 +491,27 @@ load_rpc_urls() {
         export ARC_MAINNET
     fi
 
+    echo "  • Loading Katana RPC..."
+    # An exported KATANA_RPC_URL wins. Otherwise take the vault item, but probe it first:
+    # it can resolve to a provider URL missing its auth token, which answers HTTP 401 while
+    # still being non-empty -- an emptiness check passes it through and forge then fails.
+    KATANA_MAINNET="${KATANA_RPC_URL:-}"
+    if [ -z "$KATANA_MAINNET" ]; then
+        KATANA_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/KATANA_RPC_URL/credential 2>/dev/null) || true
+    fi
+    if [ -n "$KATANA_MAINNET" ] && ! curl -sf --max-time 10 -X POST "$KATANA_MAINNET" \
+        -H 'content-type: application/json' \
+        --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
+        | grep -q '"result"'; then
+        echo "  • Configured Katana RPC did not answer eth_chainId, falling back to public RPC"
+        KATANA_MAINNET=""
+    fi
+    if [ -z "$KATANA_MAINNET" ]; then
+        echo "  • Using default public Katana RPC"
+        KATANA_MAINNET="https://rpc.katana.network"
+    fi
+    export KATANA_MAINNET
+
     if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
         echo "❌ Failed to load the following RPC URLs from 1Password:"
         for failed_rpc in "${failed_rpcs[@]}"; do
@@ -482,7 +521,7 @@ load_rpc_urls() {
         return 1
     fi
 
-    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base, BSC, HyperEVM, Flare, RH, Arc)"
+    echo "✅ Production RPC URLs loaded successfully (Ethereum, Base, BSC, Arbitrum, Optimism, Polygon, Unichain, Avalanche, Berachain, Sonic, Gnosis, Worldchain, HyperEVM, Flare, RH, Arc, Katana)"
 }
 
 # Load Etherscan V2 API key for verification

@@ -36,6 +36,11 @@ contract DeployUpOFT is Script {
     uint64 internal constant HYPEREVM_CHAIN_ID = 999;
     uint64 internal constant FLARE_CHAIN_ID = 14;
     uint64 internal constant RH_CHAIN_ID = 4663;
+    // Katana's LayerZero endpoint, libraries, executor, DVNs and eid (30375) live in
+    // script/run/deploy_up_oft_katana.sh, which does the whole deploy and wiring with
+    // cast. This file has no Katana entrypoint, so duplicating them here would only
+    // create a second copy to drift. KATANA_CHAIN_ID stays because _getChainName uses it.
+    uint64 internal constant KATANA_CHAIN_ID = 747_474;
 
     uint16 internal constant SEND = 1;
     uint16 internal constant SEND_AND_CALL = 2;
@@ -87,6 +92,7 @@ contract DeployUpOFT is Script {
     address internal constant SEND_LIB_RH = 0xC39161c743D0307EB9BCc9FEF03eeb9Dc4802de7;
     address internal constant RECEIVE_LIB_RH = 0xe1844c5D63a9543023008D332Bd3d2e6f1FE1043;
     address internal constant EXECUTOR_RH = 0x4208D6E27538189bB48E603D6123A94b8Abe0A0b;
+
 
     uint32 internal constant GRACE_PERIOD = 0;
 
@@ -2632,6 +2638,7 @@ contract DeployUpOFT is Script {
         if (chainId == HYPEREVM_CHAIN_ID) return "HyperEVM";
         if (chainId == FLARE_CHAIN_ID) return "Flare";
         if (chainId == RH_CHAIN_ID) return "RH";
+        if (chainId == KATANA_CHAIN_ID) return "Katana";
         revert("UNSUPPORTED_CHAIN");
     }
 
