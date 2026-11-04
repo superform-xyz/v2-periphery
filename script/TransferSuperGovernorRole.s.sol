@@ -366,6 +366,7 @@ contract TransferSuperGovernorRole is DeployV2Base {
         if (chainId == 4663) return "RH";
         if (chainId == 56) return "BNB";
         if (chainId == 5042) return "Arc";
+        if (chainId == 747_474) return "Katana";
         return "Unknown";
     }
 

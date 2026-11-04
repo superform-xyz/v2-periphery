@@ -141,11 +141,11 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         totalGasEstimate += _estimateContractGas(SUPER_GOVERNOR_KEY, chainId, env);
         totalGasEstimate += _estimateContractGas(ECDSAPPS_ORACLE_KEY, chainId, env);
         totalGasEstimate += _estimateContractGas(FIXED_PRICE_ORACLE_KEY, chainId, env);
-        // SuperOracle (mainnet/HyperEVM/Flare/RH/BNB/Arc) or SuperOracleL2 (L2 chains with sequencer uptime feed)
+        // SuperOracle (mainnet/HyperEVM/Flare/RH/BNB/Arc/Katana) or SuperOracleL2 (L2s with a sequencer uptime feed)
         if (
             chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
                 || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
-                || chainId == PLATABERGET_CHAIN_ID
+                || chainId == KATANA_CHAIN_ID || chainId == PLATABERGET_CHAIN_ID
         ) {
             totalGasEstimate += _estimateContractGas(SUPER_ORACLE_KEY, chainId, env);
         } else {
@@ -530,6 +530,21 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] ORACLE_GAS_TO_WEI_ARC not deployed - deploy SuperformGasOracle first");
             }
             ethUsdOracle = ORACLE_USDC_USD_ARC;
+        } else if (chainId == KATANA_CHAIN_ID) {
+            // Katana (ETH-gas L2): Chainlink ETH/USD (8 decimals) as the NATIVE/USD feed and
+            // SuperformGasOracle for gas (no Chainlink Fast Gas feed on Katana). No Chainlink
+            // sequencer uptime feed exists here, so this chain uses plain SuperOracle.
+            gasOracle = ORACLE_GAS_TO_WEI_KATANA;
+            upToken = UP_TOKEN_KATANA;
+            if (UP_TOKEN_KATANA.code.length == 0) {
+                console2.log(
+                    "[WARNING] UP_TOKEN_KATANA not deployed - ensure UpOFT is deployed before actual deployment"
+                );
+            }
+            if (ORACLE_GAS_TO_WEI_KATANA.code.length == 0) {
+                console2.log("[WARNING] ORACLE_GAS_TO_WEI_KATANA not deployed - deploy SuperformGasOracle first");
+            }
+            ethUsdOracle = ORACLE_ETH_USD_KATANA;
         } else if (chainId == PLATABERGET_CHAIN_ID) {
             // Plataberget (Glamsterdam testnet): keeper-pushed SuperformGasOracle serves as BOTH
             // gas and ETH/USD feed (no Chainlink on the devnet); UP token intentionally absent.
@@ -566,7 +581,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         if (
             chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
                 || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
-                || chainId == PLATABERGET_CHAIN_ID
+                || chainId == KATANA_CHAIN_ID || chainId == PLATABERGET_CHAIN_ID
         ) {
             __checkContractWithBytecode(
                 SUPER_ORACLE_KEY, __getSalt(SUPER_ORACLE_KEY), type(SuperOracle).creationCode, superOracleArgs
@@ -935,6 +950,21 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 console2.log("[WARNING] ORACLE_GAS_TO_WEI_ARC not deployed - deploy SuperformGasOracle first");
             }
             ethUsdOracle = ORACLE_USDC_USD_ARC;
+        } else if (chainId == KATANA_CHAIN_ID) {
+            // Katana (ETH-gas L2): Chainlink ETH/USD (8 decimals) as the NATIVE/USD feed and
+            // SuperformGasOracle for gas (no Chainlink Fast Gas feed on Katana). No Chainlink
+            // sequencer uptime feed exists here, so this chain uses plain SuperOracle.
+            gasOracle = ORACLE_GAS_TO_WEI_KATANA;
+            upToken = UP_TOKEN_KATANA;
+            if (UP_TOKEN_KATANA.code.length == 0) {
+                console2.log(
+                    "[WARNING] UP_TOKEN_KATANA not deployed - ensure UpOFT is deployed before actual deployment"
+                );
+            }
+            if (ORACLE_GAS_TO_WEI_KATANA.code.length == 0) {
+                console2.log("[WARNING] ORACLE_GAS_TO_WEI_KATANA not deployed - deploy SuperformGasOracle first");
+            }
+            ethUsdOracle = ORACLE_ETH_USD_KATANA;
         } else if (chainId == PLATABERGET_CHAIN_ID) {
             // Plataberget (Glamsterdam testnet): keeper-pushed SuperformGasOracle serves as BOTH
             // gas and ETH/USD feed (no Chainlink on the devnet); UP token intentionally absent.
@@ -969,7 +999,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         if (
             chainId == MAINNET_CHAIN_ID || chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID
                 || chainId == ROBINHOOD_CHAIN_ID || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
-                || chainId == PLATABERGET_CHAIN_ID
+                || chainId == KATANA_CHAIN_ID || chainId == PLATABERGET_CHAIN_ID
         ) {
             superOracle = __deployContractIfNeeded(
                 SUPER_ORACLE_KEY,
@@ -1097,7 +1127,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
         if (
             env != 1 && chainId != MAINNET_CHAIN_ID && chainId != HYPEREVM_CHAIN_ID && chainId != FLARE_CHAIN_ID
                 && chainId != ROBINHOOD_CHAIN_ID && chainId != BNB_CHAIN_ID && chainId != ARC_CHAIN_ID
-                && chainId != PLATABERGET_CHAIN_ID
+                && chainId != KATANA_CHAIN_ID && chainId != PLATABERGET_CHAIN_ID
         ) {
             console2.log("[Step 6] Configuring L2 sequencer uptime feed...");
 
@@ -1147,7 +1177,7 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             console2.log("[Step 6] DONE - Configured uptime feeds for ETH/USD, GAS/WEI, and UP/USD oracles");
         } else if (
             chainId == HYPEREVM_CHAIN_ID || chainId == FLARE_CHAIN_ID || chainId == ROBINHOOD_CHAIN_ID
-                || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID
+                || chainId == BNB_CHAIN_ID || chainId == ARC_CHAIN_ID || chainId == KATANA_CHAIN_ID
         ) {
             console2.log("[Step 6] SKIPPED - Chain has no sequencer uptime feed");
         }
@@ -1169,6 +1199,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 upToken = UP_TOKEN_BNB;
             } else if (chainId == ARC_CHAIN_ID) {
                 upToken = UP_TOKEN_ARC;
+            } else if (chainId == KATANA_CHAIN_ID) {
+                upToken = UP_TOKEN_KATANA;
             } else if (chainId == PLATABERGET_CHAIN_ID) {
                 upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP
             } else {
@@ -1198,6 +1230,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
                 upkeepToken = UPKEEP_TOKEN_BNB;
             } else if (chainId == ARC_CHAIN_ID) {
                 upkeepToken = UPKEEP_TOKEN_ARC;
+            } else if (chainId == KATANA_CHAIN_ID) {
+                upkeepToken = UPKEEP_TOKEN_KATANA;
             } else if (chainId == PLATABERGET_CHAIN_ID) {
                 upkeepToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC as upkeep token
             } else {
@@ -1344,6 +1378,8 @@ contract DeployV2Periphery is DeployV2Base, ConfigPeriphery {
             upToken = UP_TOKEN_BNB;
         } else if (chainId == ARC_CHAIN_ID) {
             upToken = UP_TOKEN_ARC;
+        } else if (chainId == KATANA_CHAIN_ID) {
+            upToken = UP_TOKEN_KATANA;
         } else if (chainId == PLATABERGET_CHAIN_ID) {
             upToken = MOCK_USDC_PLATABERGET; // devnet: mock USDC stands in for UP
         } else {

@@ -34,6 +34,10 @@
 #
 ###################################################################################
 
+
+# forge checks the sender covers (foundry.toml gas_limit / 1e8) * 1.2 * basefee before a
+# broadcast; u64::MAX makes that ~11 ETH on Katana. 1e9 is ample for any script here.
+SCRIPT_GAS_LIMIT="${SCRIPT_GAS_LIMIT:-1000000000}"
 set -euo pipefail
 
 ###################################################################################
@@ -62,7 +66,14 @@ readonly SUPPORTED_CHAINS=(
     # "14:Flare"       # deployed 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc
     # "4663:RH"        # deployed 0x986c1431D8e157723dBCB2a30F1FF7b4cD29bBc0 (non-default args)
     # "56:BNB"         # deployed 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc
-    "5042:Arc"         # USDC-native gas (18 dec); keeper pushes gas price in gwei like every other chain
+    # "5042:Arc"       # deployed; keeper-pushed, wei-scaled (the "gwei" wording in the contract
+    #                  # docstring is a known doc bug - SuperOracleBase multiplies the answer by
+    #                  # the gas amount directly, so the feed must be wei per gas unit)
+    # Katana is an OP Stack L2: block.basefee there excludes the L1 data fee, which measured
+    # 2.6e8 wei against a 5e7 wei basefee, so BasefeeGasOracle would structurally undercharge
+    # (its own deploy script says "On L2s ... do not deploy there"). Keeper-pushed instead,
+    # like Arc, RH, BNB and Base. Its address becomes ORACLE_GAS_TO_WEI_KATANA in ConfigBase.sol.
+    "747474:Katana"
 )
 
 ###################################################################################
@@ -101,7 +112,7 @@ Examples:
     # Execute with custom gas price
     $0 staging execute v2-supervaults 50
 
-Note: Deploys on every chain listed in SUPPORTED_CHAINS (currently Arc/5042). Comment a chain out once deployed.
+Note: Deploys on every chain listed in SUPPORTED_CHAINS (currently Katana/747474). Comment a chain out once deployed.
 
 EOF
     exit 1
@@ -169,6 +180,9 @@ get_chain_rpc_url() {
         5042)
             echo "${ARC_MAINNET:-}"
             ;;
+        747474)
+            echo "${KATANA_MAINNET:-}"
+            ;;
         *)
             echo ""
             ;;
@@ -224,6 +238,7 @@ deploy_on_chain() {
         forge_cmd+=" --sig 'run(uint256,uint64,int256,address)' $env $chain_id $gas_price $OWNER"
     fi
 
+    forge_cmd+=" --gas-limit $SCRIPT_GAS_LIMIT"
     forge_cmd+=" --rpc-url '$rpc_url'"
     forge_cmd+=" --chain $chain_id"
     [ -n "$ACCOUNT_FLAG" ] && forge_cmd+=" $ACCOUNT_FLAG"
