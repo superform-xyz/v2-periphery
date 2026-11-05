@@ -71,7 +71,12 @@ ftest :; $(MAKE) ensure-merkle-cache && forge test
 
 ftest-vvv :; $(MAKE) ensure-merkle-cache && forge test -vvv --jobs 2
 
-ftest-ci :; $(MAKE) regenerate-merkle-cache-ci && forge test -v --jobs 2
+# --jobs 1: forge 1.3.6 (the version CI pins) leaks state across test contracts run in
+# parallel. test_PendleRouterSwapAndRedeemX passed on the CI runner when its suite ran
+# alone (1573695 gas) and failed inside the same run at --jobs 2 (1718774), with the fork
+# cache cleared and two archive providers agreeing on state. Serial execution is correct;
+# revisit if the pinned toolchain moves.
+ftest-ci :; $(MAKE) regenerate-merkle-cache-ci && forge test -v --jobs 1
 
 ftest-quick :; forge test
 

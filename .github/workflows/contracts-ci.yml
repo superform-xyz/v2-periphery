@@ -72,7 +72,10 @@ jobs:
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
-          version: "v1.8.6"
+          # Do NOT bump without checking `forge install` first: on v1.8.6 that step moved the
+          # pinned lib/v2-core submodule, so CI compiled against a different v2-core (missing
+          # KyberSwapAPIParser / deprecated PendleRouterSwapHook, changed IYieldSourceOracle).
+          version: "v1.3.6"
 
       - name: "Get forge version"
         run: forge --version
@@ -147,7 +150,10 @@ jobs:
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
-          version: "v1.8.6"
+          # Do NOT bump without checking `forge install` first: on v1.8.6 that step moved the
+          # pinned lib/v2-core submodule, so CI compiled against a different v2-core (missing
+          # KyberSwapAPIParser / deprecated PendleRouterSwapHook, changed IYieldSourceOracle).
+          version: "v1.3.6"
 
       - name: "Install Foundry dependencies"
         run: forge install
@@ -228,7 +234,10 @@ jobs:
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
-          version: "v1.8.6"
+          # Do NOT bump without checking `forge install` first: on v1.8.6 that step moved the
+          # pinned lib/v2-core submodule, so CI compiled against a different v2-core (missing
+          # KyberSwapAPIParser / deprecated PendleRouterSwapHook, changed IYieldSourceOracle).
+          version: "v1.3.6"
 
       - name: "Install Foundry dependencies"
         run: forge install
@@ -312,7 +321,10 @@ jobs:
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
-          version: "v1.8.6"
+          # Do NOT bump without checking `forge install` first: on v1.8.6 that step moved the
+          # pinned lib/v2-core submodule, so CI compiled against a different v2-core (missing
+          # KyberSwapAPIParser / deprecated PendleRouterSwapHook, changed IYieldSourceOracle).
+          version: "v1.3.6"
 
       - name: "Install Foundry dependencies"
         run: forge install
