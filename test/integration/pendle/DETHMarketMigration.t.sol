@@ -242,6 +242,7 @@ contract DETHMarketMigrationTest is MinimalBaseIntegrationTest {
 
     /// @notice Helper to create ApproveERC20Hook data
     /// @dev Data layout: [address token][address spender][uint256 amount][bool usePrevHookAmount]
+    /// @dev UNUSED and STALE: pre-standardization layout, missing the 52-byte strategy header.
     function _createApproveHookData(
         address token,
         address spender,
@@ -259,41 +260,50 @@ contract DETHMarketMigrationTest is MinimalBaseIntegrationTest {
     function _createPendleUnifiedRedeemHookData(
         address yieldSource,
         uint256 amount,
-        address ytAddress,
+        address, /* ytAddress - derived from the market by the hook */
         address tokenOut,
         address tokenRedeemSy,
         uint256 minTokenOut,
         bool usePrevHookAmount
     )
         internal
-        view
+        pure
         returns (bytes memory)
     {
-        // Create TokenOutput struct with no swap routing (direct redemption)
-        TokenOutput memory output = TokenOutput({
-            tokenOut: tokenOut,
-            minTokenOut: minTokenOut,
-            tokenRedeemSy: tokenRedeemSy,
-            pendleSwap: address(0),
-            swapData: SwapData({ swapType: SwapType.NONE, extRouter: address(0), extCalldata: bytes(""), needScale: false })
-        });
+        // Layer 2 payload: abi.encode(selector, routingParams). For redeemPyToToken the routing
+        // params are abi.encode(tokenRedeemSy, pendleSwap, SwapData); the receiver (= account),
+        // YT and amount are derived by the hook from the market and the header, so they are no
+        // longer passed here.
+        bytes memory routingParams = abi.encode(
+            tokenRedeemSy,
+            address(0), // pendleSwap - unused when swapType == NONE
+            SwapData({ swapType: SwapType.NONE, extRouter: address(0), extCalldata: bytes(""), needScale: false })
+        );
+        bytes memory payload = abi.encode(IPendleRouterV4.redeemPyToToken.selector, routingParams);
 
-        // Encode txData for redeemPyToToken
-        bytes memory txData =
-            abi.encodeWithSelector(IPendleRouterV4.redeemPyToToken.selector, accountEth, ytAddress, amount, output);
-
-        // Pack hook data: [bytes32 placeholder][address yieldSource][bool usePrevHookAmount][uint256 value][bytes txData]
-        return abi.encodePacked(
+        // Standardized SwapCalldataLayout: 52-byte strategy header, then inputToken at 52,
+        // outputToken at 72, inputAmount at 92, outputQuote at 124, outputMin at 156,
+        // usePrevHookAmount at 188, payloadLength at 189, payload at 221.
+        return bytes.concat(
             bytes32(0), // placeholder
-            yieldSource, // yieldSource (always market address)
-            usePrevHookAmount, // usePrevHookAmount
-            uint256(0), // value (not used for redemptions)
-            txData
+            bytes20(yieldSource), // yieldSource (the market)
+            bytes20(address(0)), // inputToken - unused for redeem
+            bytes20(tokenOut), // outputToken
+            bytes32(amount), // inputAmount
+            bytes32(uint256(0)), // outputQuote
+            bytes32(minTokenOut), // outputMin
+            usePrevHookAmount ? bytes1(0x01) : bytes1(0x00), // usePrevHookAmount
+            bytes32(payload.length), // payloadLength
+            payload
         );
     }
 
     /// @notice Helper to create PendleUnifiedHook data for swapExactTokenForPt (buy PT with token)
-    /// @dev Uses swapExactTokenForPt which is supported by PendleUnifiedHook
+    /// @dev Uses swapExactTokenForPt which is supported by PendleUnifiedHook.
+    /// @dev UNUSED and STALE: still builds the pre-standardization packed layout and will revert
+    ///      with empty returndata if called. PendleUnifiedHook now expects SwapCalldataLayout
+    ///      with routingParams = abi.encode(tokenMintSy, pendleSwap, SwapData, ApproxParams,
+    ///      LimitOrderData). See _createPendleUnifiedRedeemHookData for the correct shape.
     function _createPendleUnifiedDepositHookData(
         address yieldSource,
         uint256 amount,
