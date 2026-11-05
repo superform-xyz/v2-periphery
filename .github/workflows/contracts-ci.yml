@@ -35,8 +35,12 @@ on:
       - dev
 jobs:
   build:
-    # Target the shared CI runner pool by labels, not by one runner's display name.
-    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
+    # Named runner, matching v2-core's contracts-ci.yml. The previous label set
+    # [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3] stopped being claimed by any runner:
+    # every run from 2026-11-04 onwards sat queued, on feature branches and on dev alike, with
+    # the last run to actually execute on 2026-10-24. v2-core has been green on SuperformCore3
+    # throughout, so this points at the pool that is demonstrably alive.
+    runs-on: "SuperformCore3"
     steps:
       - name: Mask Secrets
         run: |
@@ -109,7 +113,7 @@ jobs:
 
   test:
     needs: ["build"]
-    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
+    runs-on: "SuperformCore3"
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
@@ -171,7 +175,7 @@ jobs:
 
   smoke-test:
     needs: ["build"]
-    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
+    runs-on: "SuperformCore3"
     steps:
       - name: "Check out the repo"
         uses: "actions/checkout@v4"
@@ -224,7 +228,7 @@ jobs:
     needs: ["test"]
     if:
       github.event_name == 'workflow_dispatch'
-    runs-on: [self-hosted, Linux, ARM64, arm, us-east-1, ci-v3]
+    runs-on: "SuperformCore3"
     outputs:
       eth_mainnet_addresses: ${{ steps.get-addresses-eth.outputs.addresses }}
       base_mainnet_addresses: ${{ steps.get-addresses-base.outputs.addresses }}
