@@ -72,7 +72,7 @@ jobs:
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
-          version: "v1.3.6"
+          version: "v1.8.6"
 
       - name: "Get forge version"
         run: forge --version
@@ -147,7 +147,7 @@ jobs:
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
-          version: "v1.3.6"
+          version: "v1.8.6"
 
       - name: "Install Foundry dependencies"
         run: forge install
@@ -190,22 +190,16 @@ jobs:
             echo $(($EPOCHSECONDS - $EPOCHSECONDS % 604800))
           )" >> $GITHUB_ENV
 
-      # The `test` job runs on a self-hosted runner, so ~/.foundry/cache/rpc persists between
-      # runs (unlike a GitHub-hosted runner, which always starts clean). A stale entry there
-      # silently feeds tests different fork state than a fresh checkout would, which makes CI
-      # results untrustworthy and locally unreproducible. Drop it before each run.
-      - name: "Clear the persistent fork cache"
-        run: "forge cache clean || true"
-
       - name: "Run the tests"
         run: "make ftest-ci"
 
       # [profile.ci] sets verbosity=4 but nothing selects that profile, so the run above reports
-      # failures with no trace. Re-run just the suites that failed with traces so a CI-only
-      # failure is diagnosable without another push.
+      # failures with no trace at all and every diagnosis costs another push. `-vvv` prints
+      # traces for FAILING tests only, so this adds no output when things pass, and `--jobs 1`
+      # distinguishes a genuine failure from a parallel-execution artefact.
       - name: "Re-run failures with traces"
         if: failure()
-        run: "forge test --match-path 'test/integration/SuperVault/SuperVault.Pendle.t.sol' -vvvv || true"
+        run: "forge test -vvv --jobs 1 || true"
 
       - name: "Add test summary"
         run: |
@@ -234,7 +228,7 @@ jobs:
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
-          version: "v1.3.6"
+          version: "v1.8.6"
 
       - name: "Install Foundry dependencies"
         run: forge install
@@ -318,7 +312,7 @@ jobs:
       - name: "Install Foundry"
         uses: "foundry-rs/foundry-toolchain@v1"
         with:
-          version: "v1.3.6"
+          version: "v1.8.6"
 
       - name: "Install Foundry dependencies"
         run: forge install
