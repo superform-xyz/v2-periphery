@@ -96,10 +96,11 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
     using Math for uint256;
 
     // NOTE: this suite does not pin its own fork. BaseSuperVaultTest.setUp() -> v2-core's
-    // _preDeploymentSetup() selects FORKS[ETH] at ETH_BLOCK (v2-core test/utils/Constants.sol),
-    // which is where every test here actually runs. A previous `createSelectFork(.., 20_500_000)`
-    // here was dead code, and that block predates both the pufETH market and CHAIN_1_PENDLE_SWAP,
-    // so do not reinstate it. The market
+    // _preDeploymentSetup() selects FORKS[ETH] at ETH_BLOCK = 21_929_476 (v2-core
+    // test/utils/Constants.sol), which is where every test here actually runs; `useLatestFork` is
+    // false, so it is pinned. A previous `createSelectFork(.., 20_500_000)` here was dead code -
+    // BaseSuperVaultTest re-selects FORKS[ETH] afterwards - and that block predates both the
+    // pufETH market and CHAIN_1_PENDLE_SWAP, so do not reinstate it. The market
     // (0x58612beB0e8a126735b19BB222cbC7fC2C162D2a, expiry 2025-06-26) is live at ETH_BLOCK.
 
     // Odos and Pendle addresses
@@ -291,8 +292,10 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         assertGe(vars.ptBalance, minExpectedPT, "PT amount too low - possible slippage or swap issue");
 
         // Now swap PT back to underlying token using Pendle swap hook
-        // Warp forward 60 days. NOTE: this does NOT cross maturity - the pufETH market expires
-        // 2025-06-26 and ETH_BLOCK is 2025-02-26, so the market is still active afterwards.
+        // Warp forward 60 days. NOTE: this does NOT cross maturity, but the margin is thinner than
+        // it looks: setUp() already warps ~35 days past the fork block's own 2025-02-26 timestamp
+        // (role + PPS + ledger timelocks), so the test body starts at 2025-04-02 and this warp
+        // lands on 2025-06-01 - only ~25 days before the pufETH market's 2025-06-26 expiry.
         vm.warp(block.timestamp + 60 days);
 
         // Setup swap PT back to token execution
