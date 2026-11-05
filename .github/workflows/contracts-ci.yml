@@ -103,11 +103,16 @@ jobs:
 
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
-        run: yarn
+        # nexus declares packageManager yarn@1.22.22 and ships only yarn.lock, so yarn is
+        # correct here; --frozen-lockfile keeps it from re-resolving.
+        run: yarn --frozen-lockfile
 
       - name: "Install Safe7579"
         working-directory: ./lib/v2-core/lib/safe7579
-        run: yarn
+        # safe7579 ships a pnpm-lock.yaml (lockfileVersion 9.0) and v2-core installs it with
+        # pnpm. `yarn` ignores that lockfile and re-resolves the whole tree from the registry,
+        # which is what produced the 504 Gateway Timeout here.
+        run: pnpm install --frozen-lockfile
 
       - name: "Build the contracts and print their size"
         run: "FOUNDRY_PROFILE=ci-sizes forge build --sizes"
@@ -158,11 +163,16 @@ jobs:
 
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
-        run: yarn
+        # nexus declares packageManager yarn@1.22.22 and ships only yarn.lock, so yarn is
+        # correct here; --frozen-lockfile keeps it from re-resolving.
+        run: yarn --frozen-lockfile
 
       - name: "Install Safe7579"
         working-directory: ./lib/v2-core/lib/safe7579
-        run: yarn
+        # safe7579 ships a pnpm-lock.yaml (lockfileVersion 9.0) and v2-core installs it with
+        # pnpm. `yarn` ignores that lockfile and re-resolves the whole tree from the registry,
+        # which is what produced the 504 Gateway Timeout here.
+        run: pnpm install --frozen-lockfile
 
       - name: "Install merkle-js dependencies"
         working-directory: ./test/utils/merkle/merkle-js
@@ -226,11 +236,16 @@ jobs:
 
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
-        run: yarn
+        # nexus declares packageManager yarn@1.22.22 and ships only yarn.lock, so yarn is
+        # correct here; --frozen-lockfile keeps it from re-resolving.
+        run: yarn --frozen-lockfile
 
       - name: "Install Safe7579"
         working-directory: ./lib/v2-core/lib/safe7579
-        run: yarn
+        # safe7579 ships a pnpm-lock.yaml (lockfileVersion 9.0) and v2-core installs it with
+        # pnpm. `yarn` ignores that lockfile and re-resolves the whole tree from the registry,
+        # which is what produced the 504 Gateway Timeout here.
+        run: pnpm install --frozen-lockfile
 
       - name: "Run smoke tests"
         run: |
@@ -305,11 +320,16 @@ jobs:
 
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
-        run: yarn
+        # nexus declares packageManager yarn@1.22.22 and ships only yarn.lock, so yarn is
+        # correct here; --frozen-lockfile keeps it from re-resolving.
+        run: yarn --frozen-lockfile
 
       - name: "Install Safe7579"
         working-directory: ./lib/v2-core/lib/safe7579
-        run: yarn
+        # safe7579 ships a pnpm-lock.yaml (lockfileVersion 9.0) and v2-core installs it with
+        # pnpm. `yarn` ignores that lockfile and re-resolves the whole tree from the registry,
+        # which is what produced the 504 Gateway Timeout here.
+        run: pnpm install --frozen-lockfile
 
       - name: "Install Tenderly CLI"
         run: curl https://raw.githubusercontent.com/Tenderly/tenderly-cli/master/scripts/install-linux.sh | sudo sh
