@@ -60,7 +60,8 @@ jobs:
       - name: "Install node"
         uses: "actions/setup-node@v3"
         with:
-          node-version: "latest"
+          # Pinned, matching v2-core. "latest" resolved to node 27.0.0-alpha on the runner.
+          node-version: "22.23.4"
 
       - name: "Install yarn"
         run: npm install -g yarn
@@ -86,14 +87,19 @@ jobs:
         run: forge install
 
       - name: "Install pnpm"
-        run: npm install -g pnpm@8
+        # 9.x is required: modulekit's pnpm-lock.yaml is lockfileVersion 9.0, and pnpm 8
+        # silently ignores it and re-resolves every dependency from scratch.
+        run: npm install -g pnpm@9.15.9
 
       - name: "Check pnpm version"
         run: pnpm --version
 
       - name: "Install ModuleKit"
         working-directory: ./lib/v2-core/lib/modulekit
-        run: pnpm install
+        # --frozen-lockfile keeps the pinned resolutions. Re-resolving turns the
+        # `github:vectorized/solady` specifier into git+ssh://git@github.com/..., which fails
+        # on a runner with no SSH key; the lockfile already pins the https codeload tarball.
+        run: pnpm install --frozen-lockfile
 
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
@@ -121,7 +127,8 @@ jobs:
       - name: "Install node"
         uses: "actions/setup-node@v3"
         with:
-          node-version: "latest"
+          # Pinned, matching v2-core. "latest" resolved to node 27.0.0-alpha on the runner.
+          node-version: "22.23.4"
 
       - name: "Install yarn"
         run: npm install -g yarn
@@ -138,11 +145,16 @@ jobs:
         run: forge install
 
       - name: "Install pnpm"
-        run: npm install -g pnpm@8
+        # 9.x is required: modulekit's pnpm-lock.yaml is lockfileVersion 9.0, and pnpm 8
+        # silently ignores it and re-resolves every dependency from scratch.
+        run: npm install -g pnpm@9.15.9
 
       - name: "Install ModuleKit"
         working-directory: ./lib/v2-core/lib/modulekit
-        run: pnpm install
+        # --frozen-lockfile keeps the pinned resolutions. Re-resolving turns the
+        # `github:vectorized/solady` specifier into git+ssh://git@github.com/..., which fails
+        # on a runner with no SSH key; the lockfile already pins the https codeload tarball.
+        run: pnpm install --frozen-lockfile
 
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
@@ -183,7 +195,8 @@ jobs:
       - name: "Install node"
         uses: "actions/setup-node@v3"
         with:
-          node-version: "latest"
+          # Pinned, matching v2-core. "latest" resolved to node 27.0.0-alpha on the runner.
+          node-version: "22.23.4"
 
       - name: "Install yarn"
         run: npm install -g yarn
@@ -200,11 +213,16 @@ jobs:
         run: forge install
 
       - name: "Install pnpm"
-        run: npm install -g pnpm@8
+        # 9.x is required: modulekit's pnpm-lock.yaml is lockfileVersion 9.0, and pnpm 8
+        # silently ignores it and re-resolves every dependency from scratch.
+        run: npm install -g pnpm@9.15.9
 
       - name: "Install ModuleKit"
         working-directory: ./lib/v2-core/lib/modulekit
-        run: pnpm install
+        # --frozen-lockfile keeps the pinned resolutions. Re-resolving turns the
+        # `github:vectorized/solady` specifier into git+ssh://git@github.com/..., which fails
+        # on a runner with no SSH key; the lockfile already pins the https codeload tarball.
+        run: pnpm install --frozen-lockfile
 
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
@@ -256,7 +274,8 @@ jobs:
       - name: "Install node"
         uses: "actions/setup-node@v3"
         with:
-          node-version: "latest"
+          # Pinned, matching v2-core. "latest" resolved to node 27.0.0-alpha on the runner.
+          node-version: "22.23.4"
 
       - name: "Install yarn"
         run: npm install -g yarn
@@ -273,11 +292,16 @@ jobs:
         run: forge install
 
       - name: "Install pnpm"
-        run: npm install -g pnpm@8
+        # 9.x is required: modulekit's pnpm-lock.yaml is lockfileVersion 9.0, and pnpm 8
+        # silently ignores it and re-resolves every dependency from scratch.
+        run: npm install -g pnpm@9.15.9
 
       - name: "Install ModuleKit"
         working-directory: ./lib/v2-core/lib/modulekit
-        run: pnpm install
+        # --frozen-lockfile keeps the pinned resolutions. Re-resolving turns the
+        # `github:vectorized/solady` specifier into git+ssh://git@github.com/..., which fails
+        # on a runner with no SSH key; the lockfile already pins the https codeload tarball.
+        run: pnpm install --frozen-lockfile
 
       - name: "Install Nexus"
         working-directory: ./lib/v2-core/lib/nexus
