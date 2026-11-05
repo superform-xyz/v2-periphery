@@ -20,6 +20,9 @@ env:
   FOUNDRY_EXPORTS_OVERWRITE_LATEST: "true"
   ONE_INCH_API_KEY: ${{ secrets.ONE_INCH_API_KEY }}
   ODOS_API_KEY: ${{ secrets.ODOS_API_KEY }}
+  # Optional: open-api-pro.openocean.finance is key-gated. Without this the OpenOcean swap
+  # test skips cleanly instead of running unauthenticated against a paid endpoint.
+  OPENOCEAN_API_KEY: ${{ secrets.OPENOCEAN_API_KEY }}
   CI: "true"
 
 on:
