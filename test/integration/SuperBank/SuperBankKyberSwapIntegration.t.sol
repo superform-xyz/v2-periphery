@@ -151,21 +151,16 @@ contract SuperBankKyberSwapIntegration is Test, KyberSwapAPIParser {
             uint256 snap = vm.snapshotState();
             deal(WHYPE, SUPER_BANK, swapAmount);
 
-            (bytes memory txData, uint256 expectedOut) =
-                _getKyberSwapTxData(WHYPE, USDC, swapAmount, "hyperevm");
+            (bytes memory txData, uint256 expectedOut) = _getKyberSwapTxData(WHYPE, USDC, swapAmount, "hyperevm");
             console2.log("KyberSwap attempt", attempt, "- Expected USDC out:", expectedOut);
 
-            bytes memory hookData = _encodeKyberSwapHookData(
-                WHYPE, USDC, swapAmount, expectedOut / 2, false, txData
-            );
+            bytes memory hookData = _encodeKyberSwapHookData(WHYPE, USDC, swapAmount, expectedOut / 2, false, txData);
 
             uint256 usdcBefore = IERC20(USDC).balanceOf(SUPER_BANK);
 
             try superBank.executeHooks(
                 _buildSingleHookExecutionData(
-                    APPROVE_AND_SWAP_KYBERSWAP_HOOK,
-                    hookData,
-                    _getHyperEvmKyberSwapProof(USDC)
+                    APPROVE_AND_SWAP_KYBERSWAP_HOOK, hookData, _getHyperEvmKyberSwapProof(USDC)
                 )
             ) {
                 uint256 usdcAfter = IERC20(USDC).balanceOf(SUPER_BANK);
@@ -181,7 +176,8 @@ contract SuperBankKyberSwapIntegration is Test, KyberSwapAPIParser {
                 vm.revertToState(snap);
             }
         }
-        vm.skip(true); // KyberSwap live routes returned incompatible calldata on all retries — skip rather than fail CI
+        vm.skip(true); // KyberSwap live routes returned incompatible calldata on all retries — skip rather than fail
+        // CI
     }
 
     /// @notice Full integration: swap USDC→WHYPE on HyperEVM via ApproveAndSwapKyberSwapHook.
@@ -195,7 +191,7 @@ contract SuperBankKyberSwapIntegration is Test, KyberSwapAPIParser {
     // ═══════════════════════════════════════════════════════════════════
 
     function _skipIfKyberUnavailable(string memory chain, address tokenIn, address tokenOut) internal {
-        try this._tryKyberRoute(chain, tokenIn, tokenOut) {}
+        try this._tryKyberRoute(chain, tokenIn, tokenOut) { }
         catch {
             vm.skip(true);
         }
@@ -293,10 +289,7 @@ contract SuperBankKyberSwapIntegration is Test, KyberSwapAPIParser {
         uint256[] memory expectedOut = new uint256[](1);
 
         return IHookExecutionData.HookExecutionData({
-            hooks: hooks,
-            data: dataArr,
-            merkleProofs: proofs,
-            expectedAssetsOrSharesOut: expectedOut
+            hooks: hooks, data: dataArr, merkleProofs: proofs, expectedAssetsOrSharesOut: expectedOut
         });
     }
 
@@ -401,7 +394,10 @@ contract SuperBankKyberSwapRHIntegration is Test, KyberSwapAPIParser {
     // ═══════════════════════════════════════════════════════════════════
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("RH_RPC_URL"));
+        // envOr, not envString: CI holds secrets for Ethereum/Base/Flare/HyperEVM but not RH, so
+        // envString aborted setUp outright. The fallback is the same public endpoint
+        // script/run/networks-production.sh already defaults to.
+        vm.createSelectFork(vm.envOr("RH_RPC_URL", string("https://rpc.mainnet.chain.robinhood.com")));
 
         superBank = SuperBank(payable(SUPER_BANK));
         superGovernor = SuperGovernor(SUPER_GOVERNOR_ADDR);
@@ -475,8 +471,13 @@ contract SuperBankKyberSwapRHIntegration is Test, KyberSwapAPIParser {
 
     /// @notice Register and set all five production RH merkle roots through the live SuperGovernor.
     function test_setProductionMerkleRoots_allHooks_onRH() public {
-        address[5] memory hooks =
-            [APPROVE_ERC20_HOOK, SWAP_KYBERSWAP_HOOK, APPROVE_AND_SWAP_KYBERSWAP_HOOK, ACROSS_SEND_FUNDS_HOOK, APPROVE_AND_ACROSS_HOOK];
+        address[5] memory hooks = [
+            APPROVE_ERC20_HOOK,
+            SWAP_KYBERSWAP_HOOK,
+            APPROVE_AND_SWAP_KYBERSWAP_HOOK,
+            ACROSS_SEND_FUNDS_HOOK,
+            APPROVE_AND_ACROSS_HOOK
+        ];
         bytes32[5] memory roots = [
             RH_APPROVE_ERC20_ROOT,
             RH_SWAP_KYBERSWAP_ROOT,
@@ -573,10 +574,7 @@ contract SuperBankKyberSwapRHIntegration is Test, KyberSwapAPIParser {
 
             try superBank.executeHooks(
                 IHookExecutionData.HookExecutionData({
-                    hooks: hooks,
-                    data: data,
-                    merkleProofs: proofs,
-                    expectedAssetsOrSharesOut: new uint256[](2)
+                    hooks: hooks, data: data, merkleProofs: proofs, expectedAssetsOrSharesOut: new uint256[](2)
                 })
             ) {
                 assertEq(IERC20(USDG).balanceOf(SUPER_BANK), 0, "All USDG should be consumed");
@@ -647,10 +645,7 @@ contract SuperBankKyberSwapRHIntegration is Test, KyberSwapAPIParser {
         vm.recordLogs();
         superBank.executeHooks(
             IHookExecutionData.HookExecutionData({
-                hooks: hooks,
-                data: data,
-                merkleProofs: proofs,
-                expectedAssetsOrSharesOut: new uint256[](2)
+                hooks: hooks, data: data, merkleProofs: proofs, expectedAssetsOrSharesOut: new uint256[](2)
             })
         );
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -911,10 +906,7 @@ contract SuperBankKyberSwapRHIntegration is Test, KyberSwapAPIParser {
         proofs[0] = proof;
 
         return IHookExecutionData.HookExecutionData({
-            hooks: hooks,
-            data: dataArr,
-            merkleProofs: proofs,
-            expectedAssetsOrSharesOut: new uint256[](1)
+            hooks: hooks, data: dataArr, merkleProofs: proofs, expectedAssetsOrSharesOut: new uint256[](1)
         });
     }
 
