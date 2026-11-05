@@ -95,6 +95,10 @@ contract KatanaDeploymentForkTest is Test {
     /// @dev Vault Bridge ETH (18 decimals) and its Yearn vault - proves decimal handling is not
     ///      specific to the 6-decimal asset.
     address constant VB_ETH = 0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62;
+    /// @dev Vault Bridge WBTC (8 decimals) and AUSD (6) - a third and fourth decimal/asset case,
+    ///      proving vault creation is not tuned to one token shape.
+    address constant VB_WBTC = 0x0913DA6Da4b42f538B445599b46Bb4622342Cf52;
+    address constant AUSD = 0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a;
     address constant YVVB_ETH = 0xE007CA01894c863d7898045ed5A3B4Abf0b18f37;
 
     address constant APPROVE_ERC20_HOOK = 0x17DdFE8988cF71BBd672e5daFc4f6D02Cf279fA4;
@@ -1504,7 +1508,285 @@ contract KatanaDeploymentForkTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                               16. THE YIELD SOURCES
+                  16. PAUSE, MANAGERS AND MORE TIMELOCKS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Unpausing resumes deposits, but PPS stays flagged stale from the pause, so a fresh
+    ///         oracle report is required before the vault is usable again. That ordering is
+    ///         deliberate: a manager cannot unpause into a known-stale favourable price.
+    function test_Fork_Katana_UnpauseLeavesPPSStaleUntilNextReport() public {
+        (address vault, address strategy,) = _createVault();
+        _fundVbUsdc(alice, 200e6);
+        vm.startPrank(alice);
+        vbUsdc.approve(vault, 200e6);
+        IERC4626(vault).deposit(100e6, alice);
+        vm.stopPrank();
+
+        vm.startPrank(manager);
+        aggregator.pauseStrategy(strategy);
+        assertTrue(aggregator.isPPSStale(strategy), "pause marks PPS stale");
+        aggregator.unpauseStrategy(strategy);
+        vm.stopPrank();
+
+        assertFalse(aggregator.isStrategyPaused(strategy), "unpaused");
+        assertTrue(aggregator.isPPSStale(strategy), "but PPS is STILL stale after unpause");
+
+        vm.prank(alice);
+        vm.expectRevert();
+        IERC4626(vault).deposit(100e6, alice);
+
+        // a fresh report clears the flag and the vault reopens
+        vm.warp(block.timestamp + MIN_UPDATE_INTERVAL + 1);
+        _forwardPPS(strategy, 1e6);
+        assertFalse(aggregator.isPPSStale(strategy), "fresh report cleared the flag");
+        vm.prank(alice);
+        IERC4626(vault).deposit(100e6, alice);
+    }
+
+    /// @notice Replacing the strategy root retires the previous authorisation: the old leaf stops
+    ///         validating, so a manager cannot keep using a superseded approval.
+    function test_Fork_Katana_NewStrategyRootRetiresTheOldLeaf() public {
+        (address vault, address strategy,) = _createVault();
+        uint256 amount = 200e6;
+        _fundVbUsdc(alice, amount);
+        vm.startPrank(alice);
+        vbUsdc.approve(vault, amount);
+        IERC4626(vault).deposit(amount, alice);
+        vm.stopPrank();
+
+        bytes memory first = _approveAndDeposit4626Data(YVVB_USDC, VB_USDC, amount);
+        _registerHookAndAuthorise(strategy, APPROVE_AND_DEPOSIT_4626_HOOK, first);
+
+        // replace the root with one authorising steakUSDC instead
+        bytes memory second = _approveAndDeposit4626Data(STEAK_USDC, VB_USDC, amount);
+        _setStrategyRoot(strategy, APPROVE_AND_DEPOSIT_4626_HOOK, second);
+
+        // the old leaf no longer validates
+        vm.prank(manager);
+        vm.expectRevert();
+        ISuperVaultStrategy(strategy).executeHooks(_executeArgs(APPROVE_AND_DEPOSIT_4626_HOOK, first));
+
+        // the new one does
+        _executeHook(strategy, APPROVE_AND_DEPOSIT_4626_HOOK, second);
+        assertGt(IERC20(STEAK_USDC).balanceOf(strategy), 0, "new authorisation works");
+    }
+
+    /// @notice Removing a secondary manager revokes its ability to drive the strategy.
+    function test_Fork_Katana_RemovedSecondaryManagerLosesHookAccess() public {
+        address secondary = makeAddr("katana-secondary-removed");
+        (address vault, address strategy,) = _createVault();
+        uint256 amount = 150e6;
+        _fundVbUsdc(alice, amount);
+        vm.startPrank(alice);
+        vbUsdc.approve(vault, amount);
+        IERC4626(vault).deposit(amount, alice);
+        vm.stopPrank();
+
+        vm.prank(manager);
+        aggregator.addSecondaryManager(strategy, secondary);
+
+        bytes memory hookData = _approveAndDeposit4626Data(YVVB_USDC, VB_USDC, amount);
+        _registerHookAndAuthorise(strategy, APPROVE_AND_DEPOSIT_4626_HOOK, hookData);
+
+        vm.prank(manager);
+        aggregator.removeSecondaryManager(strategy, secondary);
+        assertFalse(aggregator.isAnyManager(secondary, strategy), "no longer a manager");
+
+        vm.prank(secondary);
+        vm.expectRevert();
+        ISuperVaultStrategy(strategy).executeHooks(_executeArgs(APPROVE_AND_DEPOSIT_4626_HOOK, hookData));
+    }
+
+    /// @notice Handing over the primary manager seat is timelocked by a week, and only a secondary
+    ///         manager may propose it. That is the takeover-resistance property.
+    function test_Fork_Katana_PrimaryManagerChangeIsTimelocked() public {
+        address secondary = makeAddr("katana-secondary-proposer");
+        address newPrimary = makeAddr("katana-new-primary");
+        (, address strategy,) = _createVault();
+
+        vm.prank(manager);
+        aggregator.addSecondaryManager(strategy, secondary);
+
+        // the primary itself cannot propose the handover
+        vm.prank(manager);
+        vm.expectRevert();
+        aggregator.proposeChangePrimaryManager(strategy, newPrimary, treasury);
+
+        vm.prank(secondary);
+        aggregator.proposeChangePrimaryManager(strategy, newPrimary, treasury);
+
+        vm.expectRevert();
+        aggregator.executeChangePrimaryManager(strategy);
+        assertEq(aggregator.getMainManager(strategy), manager, "still the original manager");
+
+        vm.warp(block.timestamp + 7 days + 1);
+        aggregator.executeChangePrimaryManager(strategy);
+        assertEq(aggregator.getMainManager(strategy), newPrimary, "handover completed after the timelock");
+    }
+
+    /// @notice Invalidating all session keys is the blanket kill switch when a keeper fleet is
+    ///         suspect, rather than revoking them one at a time.
+    function test_Fork_Katana_InvalidateAllSessionKeys() public {
+        (address vault, address strategy,) = _createVault();
+        address keeper = makeAddr("katana-keeper-invalidated");
+        uint256 amount = 120e6;
+        _fundVbUsdc(alice, amount);
+        vm.startPrank(alice);
+        vbUsdc.approve(vault, amount);
+        IERC4626(vault).deposit(amount, alice);
+        vm.stopPrank();
+
+        _seatExecutorAndGrantKey(strategy, keeper, _permExecuteHooks());
+        bytes memory hookData = _approveAndDeposit4626Data(YVVB_USDC, VB_USDC, amount);
+        _registerHookAndAuthorise(strategy, APPROVE_AND_DEPOSIT_4626_HOOK, hookData);
+
+        vm.prank(manager);
+        ISuperVaultExecutor(SUPER_VAULT_EXECUTOR).invalidateAllSessionKeys(strategy);
+
+        vm.prank(keeper);
+        vm.expectRevert();
+        ISuperVaultExecutor(SUPER_VAULT_EXECUTOR)
+            .executeHooks(strategy, _executeArgs(APPROVE_AND_DEPOSIT_4626_HOOK, hookData));
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                    17. INPUT VALIDATION AND ASSET SHAPES
+    //////////////////////////////////////////////////////////////*/
+
+    function test_Fork_Katana_DepositValidation() public {
+        (address vault,,) = _createVault();
+        _fundVbUsdc(alice, 100e6);
+
+        vm.startPrank(alice);
+        vbUsdc.approve(vault, 100e6);
+
+        vm.expectRevert();
+        IERC4626(vault).deposit(0, alice); // zero amount
+
+        vm.expectRevert();
+        IERC4626(vault).deposit(100e6, address(0)); // zero receiver
+        vm.stopPrank();
+    }
+
+    function test_Fork_Katana_RequestRedeemBeyondBalanceReverts() public {
+        (address vault,,) = _createVault();
+        uint256 amount = 100e6;
+        _fundVbUsdc(alice, amount);
+        vm.startPrank(alice);
+        vbUsdc.approve(vault, amount);
+        uint256 shares = IERC4626(vault).deposit(amount, alice);
+
+        vm.expectRevert();
+        ISuperVault(vault).requestRedeem(shares + 1, alice, alice);
+
+        vm.expectRevert();
+        ISuperVault(vault).requestRedeem(0, alice, alice);
+        vm.stopPrank();
+    }
+
+    /// @notice Vault creation validates its inputs rather than producing a broken vault.
+    function test_Fork_Katana_CreateVaultValidation() public {
+        ISuperVaultAggregator.VaultCreationParams memory p = ISuperVaultAggregator.VaultCreationParams({
+            asset: VB_USDC,
+            name: "x",
+            symbol: "x",
+            mainManager: manager,
+            secondaryManagers: new address[](0),
+            minUpdateInterval: MIN_UPDATE_INTERVAL,
+            maxStaleness: MAX_STALENESS,
+            feeConfig: ISuperVaultStrategy.FeeConfig({
+                performanceFeeBps: 1000, managementFeeBps: 0, recipient: treasury
+            })
+        });
+
+        p.asset = address(0);
+        vm.expectRevert();
+        aggregator.createVault(p);
+        p.asset = VB_USDC;
+
+        p.mainManager = address(0);
+        vm.expectRevert();
+        aggregator.createVault(p);
+        p.mainManager = manager;
+
+        p.name = "";
+        vm.expectRevert();
+        aggregator.createVault(p);
+        p.name = "x";
+
+        // maxStaleness below the governor floor (300 on Katana)
+        p.maxStaleness = 100;
+        p.minUpdateInterval = 50;
+        vm.expectRevert();
+        aggregator.createVault(p);
+    }
+
+    /// @notice An 8-decimal asset: initial PPS follows the asset, as it does at 6 and 18.
+    function test_Fork_Katana_CreateVbWbtcVaultAt8Decimals() public {
+        (address vault, address strategy,) = aggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: VB_WBTC,
+                name: "Katana Fork Test SuperVault vbWBTC",
+                symbol: "tsvWBTC-katana",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: MIN_UPDATE_INTERVAL,
+                maxStaleness: MAX_STALENESS,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: treasury
+                })
+            })
+        );
+
+        assertEq(IERC20Metadata(VB_WBTC).decimals(), 8, "vbWBTC has 8 decimals");
+        assertEq(IERC20Metadata(vault).decimals(), 8, "shares follow the asset");
+        assertEq(aggregator.getPPS(strategy), 1e8, "initial PPS = 1.0 at 8 decimals");
+
+        uint256 amount = 2e8; // 2 vbWBTC
+        deal(VB_WBTC, alice, amount);
+        vm.startPrank(alice);
+        IERC20(VB_WBTC).approve(vault, amount);
+        uint256 shares = IERC4626(vault).deposit(amount, alice);
+        vm.stopPrank();
+        assertEq(shares, amount, "1:1 at PPS 1.0");
+        assertEq(IERC4626(vault).totalAssets(), amount, "totalAssets at 8 decimals");
+    }
+
+    /// @notice A fourth asset shape: AUSD is a PROXY token, and the aggregator accepts it as a
+    ///         vault asset just the same. Creation only, deliberately.
+    /// @dev No deposit leg here: AUSD is an upgradeable proxy whose balance slot stdStorage cannot
+    ///      locate, so `deal` fails with "Failed to write value", and there is no sourceable
+    ///      holder on Katana to prank from (the AUSD/vbUSDC Sushi pool holds 13 wei). Creation is
+    ///      the part worth asserting anyway: it proves asset handling is not tuned to the Vault
+    ///      Bridge tokens.
+    function test_Fork_Katana_CreateAusdVault() public {
+        (address vault, address strategy, address escrow) = aggregator.createVault(
+            ISuperVaultAggregator.VaultCreationParams({
+                asset: AUSD,
+                name: "Katana Fork Test SuperVault AUSD",
+                symbol: "tsvAUSD-katana",
+                mainManager: manager,
+                secondaryManagers: new address[](0),
+                minUpdateInterval: MIN_UPDATE_INTERVAL,
+                maxStaleness: MAX_STALENESS,
+                feeConfig: ISuperVaultStrategy.FeeConfig({
+                    performanceFeeBps: 1000, managementFeeBps: 0, recipient: treasury
+                })
+            })
+        );
+
+        assertGt(vault.code.length, 0, "vault clone");
+        assertGt(escrow.code.length, 0, "escrow clone");
+        assertEq(IERC4626(vault).asset(), AUSD, "asset");
+        assertEq(IERC20Metadata(AUSD).decimals(), 6, "AUSD is 6 decimals");
+        assertEq(IERC20Metadata(vault).decimals(), 6, "shares follow the asset");
+        assertEq(aggregator.getPPS(strategy), 1e6, "initial PPS = 1.0");
+        assertEq(aggregator.getMainManager(strategy), manager, "manager seated");
+        assertEq(IERC4626(vault).totalAssets(), 0, "fresh vault");
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                               18. THE YIELD SOURCES
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Sanity-checks the Katana yield source the hook tests point at, so a failure there
