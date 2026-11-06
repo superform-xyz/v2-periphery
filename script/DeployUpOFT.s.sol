@@ -37,7 +37,7 @@ contract DeployUpOFT is Script {
     uint64 internal constant FLARE_CHAIN_ID = 14;
     uint64 internal constant RH_CHAIN_ID = 4663;
     // Katana's LayerZero endpoint, libraries, executor, DVNs and eid (30375) live in
-    // script/run/deploy_up_oft_katana.sh, which does the whole deploy and wiring with
+    // script/run/deploy/deploy_up_oft_katana.sh, which does the whole deploy and wiring with
     // cast. This file has no Katana entrypoint, so duplicating them here would only
     // create a second copy to drift. KATANA_CHAIN_ID stays because _getChainName uses it.
     uint64 internal constant KATANA_CHAIN_ID = 747_474;

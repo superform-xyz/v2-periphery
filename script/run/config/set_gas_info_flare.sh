@@ -18,9 +18,9 @@
 #   3. revokeRole(GAS_MANAGER_ROLE, deployer)    (skipped if it was held before we started)
 #
 # Usage:
-#   ./script/run/set_gas_info_flare.sh check                 # read-only: current state, roles, cost
-#   ./script/run/set_gas_info_flare.sh simulate              # dry-run the calls as the signer
-#   ./script/run/set_gas_info_flare.sh configure [account]   # send them (default account: v2-supervaults)
+#   ./script/run/config/set_gas_info_flare.sh check                 # read-only: current state, roles, cost
+#   ./script/run/config/set_gas_info_flare.sh simulate              # dry-run the calls as the signer
+#   ./script/run/config/set_gas_info_flare.sh configure [account]   # send them (default account: v2-supervaults)
 #
 # Prerequisites:
 #   - FLARE_RPC_URL in .env
@@ -29,7 +29,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$REPO_ROOT"
 
 MODE="${1:-}"

@@ -99,7 +99,7 @@ abstract contract ConfigBase is Constants {
     /// @notice Gas to WEI oracle on Katana (SuperformGasOracle - keeper updated).
     ///         Deterministic address (default initial price, DEPLOYER owner) - identical to
     ///         Base/HyperEVM/Flare/BNB/Arc. Verified live on chain 747474 (reports
-    ///         "Superform Fast Gas / Gwei"). Deploy via script/run/deploy_superform_gas_oracle.sh
+    ///         "Superform Fast Gas / Gwei"). Deploy via script/run/deploy/deploy_superform_gas_oracle.sh
     ///         before the periphery run.
     address internal constant ORACLE_GAS_TO_WEI_KATANA = 0x473b88f017dE39d85a102DA01A35a1b3507eBcFc;
 
@@ -150,7 +150,7 @@ abstract contract ConfigBase is Constants {
     address internal constant UP_TOKEN_ARC = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E; // UpOFT on Arc
     // Katana: deterministic UpOFT address (same CREATE2 salt, LZ endpoint 0x6F47...DD5B and
     // v2-supervaults delegate as RH/Arc, hence the same address). Deployed and verified on chain
-    // 747474; Katana-side pathways wired via script/run/deploy_up_oft_katana.sh configure.
+    // 747474; Katana-side pathways wired via script/run/deploy/deploy_up_oft_katana.sh configure.
     address internal constant UP_TOKEN_KATANA = 0xA85abEf37c7e812ACA761b2BEC62fFF7f3728F1E; // UpOFT on Katana
     int256 internal constant INITIAL_UP_PRICE = 0.09e18; // $0.09 with 18 decimals
     uint8 internal constant UP_PRICE_DECIMALS = 18;

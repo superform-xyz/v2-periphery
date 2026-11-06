@@ -34,9 +34,9 @@
 # 4-DVN set from the start.
 #
 # Usage:
-#   ./script/run/update_up_oft_dvns_arc.sh check                 # read-only: DVN support, current vs target, reverse legs
-#   ./script/run/update_up_oft_dvns_arc.sh simulate              # dry-run the setConfig calls
-#   ./script/run/update_up_oft_dvns_arc.sh configure [account]   # send them (default account: v2-supervaults)
+#   ./script/run/config/update_up_oft_dvns_arc.sh check                 # read-only: DVN support, current vs target, reverse legs
+#   ./script/run/config/update_up_oft_dvns_arc.sh simulate              # dry-run the setConfig calls
+#   ./script/run/config/update_up_oft_dvns_arc.sh configure [account]   # send them (default account: v2-supervaults)
 #
 # Prerequisites:
 #   - ARC_RPC_URL in .env (falls back to the public https://rpc.mainnet.arc.io)
@@ -49,7 +49,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$REPO_ROOT"
 
 MODE="${1:-}"

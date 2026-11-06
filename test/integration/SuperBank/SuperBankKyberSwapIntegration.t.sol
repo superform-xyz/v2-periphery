@@ -424,7 +424,7 @@ contract SuperBankKyberSwapRHIntegration is Test, KyberSwapAPIParser {
     function setUp() public {
         // envOr, not envString: CI holds secrets for Ethereum/Base/Flare/HyperEVM but not RH, so
         // envString aborted setUp outright. The fallback is the same public endpoint
-        // script/run/networks-production.sh already defaults to.
+        // script/run/utils/networks-production.sh already defaults to.
         vm.createSelectFork(vm.envOr("RH_RPC_URL", string("https://rpc.mainnet.chain.robinhood.com")));
 
         superBank = SuperBank(payable(SUPER_BANK));

@@ -76,13 +76,13 @@
 # deployer EOA, so those need separate calldata.
 #
 # Usage:
-#   ./script/run/deploy_up_oft_katana.sh deploy [account]      # deploy UpOFT, writes address to
+#   ./script/run/deploy/deploy_up_oft_katana.sh deploy [account]      # deploy UpOFT, writes address to
 #                                                              # script/output/prod/747474/Katana-latest.json
-#   ./script/run/deploy_up_oft_katana.sh check-dvns             # on-chain DVN/executor preflight (no state changes)
-#   ./script/run/deploy_up_oft_katana.sh simulate               # dry-run Katana-side configuration
-#   ./script/run/deploy_up_oft_katana.sh configure [account]
-#   ./script/run/deploy_up_oft_katana.sh simulate-remote <rh|arc>
-#   ./script/run/deploy_up_oft_katana.sh configure-remote <rh|arc> [account]
+#   ./script/run/deploy/deploy_up_oft_katana.sh check-dvns             # on-chain DVN/executor preflight (no state changes)
+#   ./script/run/deploy/deploy_up_oft_katana.sh simulate               # dry-run Katana-side configuration
+#   ./script/run/deploy/deploy_up_oft_katana.sh configure [account]
+#   ./script/run/deploy/deploy_up_oft_katana.sh simulate-remote <rh|arc>
+#   ./script/run/deploy/deploy_up_oft_katana.sh configure-remote <rh|arc> [account]
 #
 # The configure/simulate modes read the deployed OFT address from
 # script/output/prod/747474/Katana-latest.json (override with env var KATANA_OFT).
@@ -96,7 +96,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$REPO_ROOT"
 
 MODE="${1:-}"
@@ -151,7 +151,7 @@ ULN_CONFIG_TYPE=2
 # Derived from the DVN set actually available, NOT fixed at the fleet standard of 4.
 # Katana has three DVNs today (LZ Labs, Canary, Nethermind) and no Superform DVN, so the
 # pathways are configured 3-of-3 and MUST be re-run at 4-of-4 once ops lands it:
-#   export KATANA_SUPERFORM_DVN=0x<addr> && ./script/run/deploy_up_oft_katana.sh
+#   export KATANA_SUPERFORM_DVN=0x<addr> && ./script/run/deploy/deploy_up_oft_katana.sh
 # Setting that variable raises the count to 4 with no further edit -- setConfig is
 # idempotent per pathway, so the re-run rewrites only what changed.
 REQUIRED_DVN_COUNT=$(( DVN_SUPERFORM_PRESENT ? 4 : 3 ))
@@ -488,7 +488,7 @@ open(path, "a").write("\n")
 PY
     echo "Recorded in $OUTPUT_FILE"
     echo ""
-    echo "Next: ./script/run/deploy_up_oft_katana.sh check-dvns"
+    echo "Next: ./script/run/deploy/deploy_up_oft_katana.sh check-dvns"
     echo "      then simulate / configure. With KATANA_SUPERFORM_DVN unset the pathways are"
     echo "      written 3-of-3; export it and re-run to raise them to 4-of-4."
     echo ""
