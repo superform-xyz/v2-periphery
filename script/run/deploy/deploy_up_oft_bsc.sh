@@ -157,19 +157,29 @@ deploy)
     BYTECODE=$(python3 -c "import json; print(json.load(open('out/UpOFT.sol/UpOFT.json'))['bytecode']['object'])")
     ARGS=$(cast abi-encode "constructor(address,address)" "$LZ_ENDPOINT" "$DELEGATE")
     INITCODE="${BYTECODE}${ARGS#0x}"
-    OFT=$(cast create2 --deployer "$FACTORY" --salt "$SALT" --init-code "$INITCODE" | tail -1)
+    # `cast create2` prints "<address>\t<salt>" on a single line; keep only the address.
+    OFT=$(cast create2 --deployer "$FACTORY" --salt "$SALT" --init-code "$INITCODE" | tail -1 | cut -f1)
+    [[ "$OFT" =~ ^0x[0-9a-fA-F]{40}$ ]] \
+        || { echo "ERROR: could not parse predicted address from cast create2: '$OFT'" >&2; exit 1; }
 
     echo "Constructor: endpoint=$LZ_ENDPOINT delegate/owner=$DELEGATE"
     echo "Salt:        $SALT"
     echo "Predicted:   $OFT"
 
-    if [[ "$(cast code "$OFT" --rpc-url "$RPC")" != "0x" ]]; then
+    # Fail closed: a failed or empty RPC response must abort, never read as "already deployed".
+    EXISTING_CODE=$(cast code "$OFT" --rpc-url "$RPC") \
+        || { echo "ERROR: cast code failed for $OFT" >&2; exit 1; }
+    [[ -n "$EXISTING_CODE" ]] || { echo "ERROR: empty cast code response for $OFT" >&2; exit 1; }
+    if [[ "$EXISTING_CODE" != "0x" ]]; then
         echo "UpOFT already deployed at $OFT — skipping deploy"
     else
         TXHASH=$(cast send --account "$ACCOUNT" --rpc-url "$RPC" --json "$FACTORY" "${SALT}${INITCODE#0x}" \
             | python3 -c "import json,sys; print(json.load(sys.stdin)['transactionHash'])")
         echo "Deploy tx: $TXHASH"
-        [[ "$(cast code "$OFT" --rpc-url "$RPC")" != "0x" ]] || { echo "ERROR: no code at predicted address after deploy" >&2; exit 1; }
+        DEPLOYED_CODE=$(cast code "$OFT" --rpc-url "$RPC") \
+            || { echo "ERROR: cast code failed after deploy for $OFT" >&2; exit 1; }
+        [[ -n "$DEPLOYED_CODE" && "$DEPLOYED_CODE" != "0x" ]] \
+            || { echo "ERROR: no code at predicted address after deploy" >&2; exit 1; }
         echo "Deployed UpOFT at: $OFT"
     fi
 

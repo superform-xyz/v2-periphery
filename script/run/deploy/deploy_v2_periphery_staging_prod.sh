@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
 # Colors for better visual output
+
+# forge checks the sender covers (foundry.toml gas_limit / 1e8) * 1.2 * basefee before a
+# broadcast; u64::MAX makes that ~11 ETH on Katana. 1e9 is ample for any script here.
+SCRIPT_GAS_LIMIT="${SCRIPT_GAS_LIMIT:-1000000000}"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -493,7 +497,10 @@ elif [ "$MODE" = "deploy" ]; then
 
     BROADCAST_FLAG="--broadcast"
     VERIFY_FLAG="--verify"
-    SENDER_FLAG=""
+    # --sender is REQUIRED here, not optional: DeployV2Periphery._validateDeployer reads
+    # msg.sender inside the broadcast, and forge rejects that unless --sender resolves it
+    # to the broadcasting account. Must equal the --account keystore address.
+    SENDER_FLAG="--sender 0x6E3dadcAf328ebB58753e89a3e589F5C5e988dF8"
     ACCOUNT_FLAG="--account $ACCOUNT"
 else
     echo -e "${RED}❌ Invalid mode: $MODE${NC}"
@@ -705,11 +712,13 @@ for network_def in "${NETWORKS[@]}"; do
             echo ""
 
             # Set verification flags (skip etherscan for HyperEVM)
-            local CHAIN_VERIFY_FLAG="$VERIFY_FLAG"
-            local CHAIN_ETHERSCAN_FLAGS=""
-            local CHAIN_SLOW_FLAG=""
-            local CHAIN_ID_FLAG="--chain $network_id"
-            local CHAIN_GAS_FLAGS=""
+            # NOT `local`: this loop runs at top level, where `local` errors out and leaves
+            # the variable unset, silently dropping --chain/--verify from the forge command.
+            CHAIN_VERIFY_FLAG="$VERIFY_FLAG"
+            CHAIN_ETHERSCAN_FLAGS=""
+            CHAIN_SLOW_FLAG=""
+            CHAIN_ID_FLAG="--chain $network_id"
+            CHAIN_GAS_FLAGS=""
             if [ "$network_id" == "7091047534" ]; then
                 # Plataberget (Glamsterdam testnet): no explorer, chain unknown to forge,
                 # RPC fee estimates unreliable (pin 1 gwei legacy), and forge's pre-fork
@@ -727,6 +736,12 @@ for network_def in "${NETWORKS[@]}"; do
                 # so the verifier URL must be given explicitly; send sequentially.
                 CHAIN_ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan --verifier-url https://api.etherscan.io/v2/api?chainid=5042"
                 CHAIN_SLOW_FLAG="--slow"
+            elif [ "$network_id" == "747474" ]; then
+                # Katana — forge resolves 747474 to `katana` from its built-in registry and
+                # Etherscan V2 serves it, so the standard flags work; no explicit --verifier-url
+                # is needed (unlike Arc). --slow only until the RPC is shown to take queued sends.
+                CHAIN_ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
+                CHAIN_SLOW_FLAG="--slow"
             elif [ "$network_id" != "999" ] && [ "$network_id" != "14" ]; then
                 CHAIN_ETHERSCAN_FLAGS="--etherscan-api-key $ETHERSCANV2_API_KEY --verifier etherscan"
             else
@@ -738,6 +753,7 @@ for network_def in "${NETWORKS[@]}"; do
             # Run deployment script
             if forge script script/DeployV2Periphery.s.sol:DeployV2Periphery \
                 --sig 'run(uint256,uint64)' $FORGE_ENV $network_id \
+                --gas-limit $SCRIPT_GAS_LIMIT \
                 --rpc-url ${!rpc_var} \
                 $CHAIN_ID_FLAG \
                 $CHAIN_ETHERSCAN_FLAGS \

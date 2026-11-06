@@ -300,9 +300,12 @@ contract BSCDeploymentForkTest is Test {
 
         uint256 cost = governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE);
         uint256 funded = 10 * cost;
+        // The fork is unpinned, and live strategies on BSC hold their own upkeep credit, so the
+        // aggregator's absolute UP balance drifts between runs. Assert our delta, not the total.
+        uint256 aggUpBefore = up.balanceOf(AGGREGATOR);
         _fundUpkeep(strategy, funded);
         assertEq(aggregator.getUpkeepBalance(strategy), funded, "upkeep credited to strategy");
-        assertEq(up.balanceOf(AGGREGATOR), funded, "UP held by aggregator");
+        assertEq(up.balanceOf(AGGREGATOR), aggUpBefore + funded, "UP held by aggregator");
 
         uint256 claimableBefore = IAggregatorUpkeepView(AGGREGATOR).claimableUpkeep();
         uint256 nonceBefore = ppsOracle.noncePerStrategy(strategy);
@@ -395,6 +398,7 @@ contract BSCDeploymentForkTest is Test {
         uint256 claimable = IAggregatorUpkeepView(AGGREGATOR).claimableUpkeep();
         assertGe(claimable, cost, "at least this update is claimable");
         uint256 bankBefore = up.balanceOf(SUPER_BANK);
+        uint256 aggUpBeforeClaim = up.balanceOf(AGGREGATOR);
 
         // Non-governor cannot pull
         vm.prank(alice);
@@ -413,7 +417,7 @@ contract BSCDeploymentForkTest is Test {
         assertEq(up.balanceOf(SUPER_BANK), bankBefore + claimable, "UP landed in SuperBank");
         assertEq(IAggregatorUpkeepView(AGGREGATOR).claimableUpkeep(), 0, "claimable drained");
         assertEq(aggregator.getUpkeepBalance(strategy), cost, "strategy's remaining upkeep untouched");
-        assertEq(up.balanceOf(AGGREGATOR), cost, "aggregator holds only the unspent remainder");
+        assertEq(up.balanceOf(AGGREGATOR), aggUpBeforeClaim - claimable, "aggregator drained by exactly the claim");
     }
 
     /// @notice Manager exit: propose -> 24h timelock -> execute returns the unspent UP to the

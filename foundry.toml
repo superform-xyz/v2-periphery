@@ -1,6 +1,10 @@
 # Full reference https://github.com/foundry-rs/foundry/tree/master/crates/config
 
 [profile.default]
+# Pinned explicitly: forge flipped the `isolate` default between 1.3.6 (CI's pinned toolchain)
+# and 1.8.6, and isolate=true adds a per-top-level-call transaction overhead that inflates gas
+# by ~20%. Leaving it to the version default makes CI results impossible to reproduce locally.
+isolate = false
 cache_path = "cache"
 auto_detect_solc = false
 bytecode_hash = "none"

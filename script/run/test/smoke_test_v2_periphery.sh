@@ -101,17 +101,32 @@ run_smoke_test() {
 
     log "INFO" "Running smoke tests on $network_name..."
 
-    if forge script script/SmokeTestV2Periphery.s.sol:SmokeTestV2Periphery \
-        --sig 'run(uint256,uint64)' "$forge_env" "$chain_id" \
-        --rpc-url "$rpc_url" \
-        --chain "$chain_id" \
-        -vvv; then
-        echo -e "${GREEN}Smoke tests PASSED on $network_name${NC}"
-        return 0
-    else
-        echo -e "${RED}Smoke tests FAILED on $network_name${NC}"
-        return 1
-    fi
+    # Retry transient RPC failures. Networks without a configured secret fall back to public
+    # endpoints, which are load balanced: forking at head can pin a block that the next
+    # request lands on a lagging backend for, and forge then aborts with "failed to get block
+    # for block number: N". That is infrastructure noise, not a deployment problem - a real
+    # misconfiguration fails all attempts, so nothing is masked.
+    local attempts=3
+    local attempt=1
+    while true; do
+        if forge script script/SmokeTestV2Periphery.s.sol:SmokeTestV2Periphery \
+            --sig 'run(uint256,uint64)' "$forge_env" "$chain_id" \
+            --rpc-url "$rpc_url" \
+            --chain "$chain_id" \
+            -vvv; then
+            echo -e "${GREEN}Smoke tests PASSED on $network_name${NC}"
+            return 0
+        fi
+
+        if [[ "$attempt" -ge "$attempts" ]]; then
+            echo -e "${RED}Smoke tests FAILED on $network_name (after $attempts attempts)${NC}"
+            return 1
+        fi
+
+        echo -e "${YELLOW}Attempt $attempt/$attempts failed on $network_name, retrying in 15s...${NC}"
+        attempt=$((attempt + 1))
+        sleep 15
+    done
 }
 
 ###################################################################################

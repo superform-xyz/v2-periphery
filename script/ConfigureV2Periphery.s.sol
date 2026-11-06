@@ -287,8 +287,38 @@ contract ConfigureV2Periphery is DeployV2Base {
             }
 
             console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (Arc)");
+        } else if (chainId == KATANA_CHAIN_ID) {
+            // Katana: Both UP and UPKEEP_TOKEN are the UpOFT token (same deterministic address as RH/Arc)
+            address upToken = UP_TOKEN_KATANA;
+            address upkeepToken = UPKEEP_TOKEN_KATANA;
+            console2.log("  Chain: Katana");
+            console2.log("  UP token:", upToken);
+            console2.log("  UPKEEP_TOKEN:", upkeepToken);
+
+            bool upAlreadySet = _isAddressSet(governor, keccak256("UP"), upToken);
+            bool upkeepAlreadySet = _isAddressSet(governor, keccak256("UPKEEP_TOKEN"), upkeepToken);
+
+            if (upAlreadySet && upkeepAlreadySet) {
+                console2.log("SKIPPED: Token addresses already configured correctly (Katana)");
+                return;
+            }
+
+            if (!upAlreadySet) {
+                governor.setAddress(keccak256("UP"), upToken);
+                console2.log("  Set UP token");
+            }
+            if (!upkeepAlreadySet) {
+                governor.setAddress(keccak256("UPKEEP_TOKEN"), upkeepToken);
+                console2.log("  Set UPKEEP_TOKEN");
+            }
+
+            console2.log("SUCCESS: UP and UPKEEP_TOKEN addresses set (Katana)");
         } else {
-            console2.log("WARNING: Unknown chain ID, skipping token address setup");
+            // Revert rather than warn, for the same reason as the two requires above: a warning
+            // here lets the run log "=== Configuration Complete ===" and exit 0 with neither UP
+            // nor UPKEEP_TOKEN written, which is indistinguishable from success. A chain that is
+            // registered in chainNames but has no branch here is a missing config, not a no-op.
+            revert("UP_AND_UPKEEP_TOKENS_NOT_CONFIGURED_FOR_THIS_CHAIN");
         }
     }
 
@@ -476,6 +506,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         if (chainId == 14) return "Flare";
         if (chainId == 4663) return "RH";
         if (chainId == 5042) return "Arc";
+        if (chainId == 747_474) return "Katana";
         return "Unknown";
     }
 

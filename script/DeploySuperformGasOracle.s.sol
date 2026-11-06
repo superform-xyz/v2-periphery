@@ -141,6 +141,15 @@ contract DeploySuperformGasOracle is DeployV2Base {
         require(bytes(chainName).length > 0, "UNSUPPORTED_CHAIN_NAME");
 
         string memory outputPath = string(abi.encodePacked(outputFolder, chainName, "-latest.json"));
+
+        // createDir above makes the folder but not the file, and the keyed form of writeJson
+        // patches a key into an EXISTING document -- on a chain deployed for the first time it
+        // fails with "No such file or directory" after the oracle has already been constructed.
+        // Seed an empty object so the first write on a new chain behaves like every later one.
+        if (!vm.exists(outputPath)) {
+            vm.writeFile(outputPath, "{}");
+        }
+
         vm.writeJson(vm.toString(oracleAddr), outputPath, ".SuperformGasOracle");
 
         console2.log("");

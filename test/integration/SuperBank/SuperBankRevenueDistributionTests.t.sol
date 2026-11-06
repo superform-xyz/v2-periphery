@@ -387,25 +387,27 @@ contract SuperBankRevenueDistributionTests is BaseSuperVaultTest {
     }
 
     /// @notice Create swap hook data for Odos
+    /// @dev Delegates to the canonical encoder in v2-core's InternalHelpers rather than
+    ///      hand-rolling the layout. SwapOdosV2Hook uses the standardized SwapCalldataLayout
+    ///      (52-byte strategy header + Layer 1 + abi-encoded Layer 2 payload), so a packed
+    ///      hand-rolled blob decodes to garbage and trips MIN_DATA_LENGTH.
     function _createSwapHookData(
         address inputToken,
         address outputToken,
         uint256 inputAmount,
         uint256 outputQuote
     ) internal pure returns (bytes memory) {
-        return abi.encodePacked(
+        return _createOdosSwapHookData(
             inputToken,
             inputAmount,
-            address(0),      // executor
+            address(0), // inputReceiver - MockOdosRouterV2 pulls from msg.sender and ignores this
             outputToken,
             outputQuote,
-            outputQuote * 99 / 100,  // minOut
-            false,           // usePrevHookAmount
-            uint256(0),      // pathDefinitionLength
-            bytes(""),       // pathDefinition
-            address(0),      // referralCode
-            uint32(0),       // referralFee
-            false            // compact
+            outputQuote * 99 / 100, // outputMin
+            bytes(""), // pathDefinition - empty for the mock router
+            address(0), // executor
+            0, // referralCode
+            false // usePrevHookAmount
         );
     }
 

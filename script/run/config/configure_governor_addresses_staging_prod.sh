@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Per-transaction gas limit passed to forge. REQUIRED: without it forge falls back to the
+# `gas_limit` in foundry.toml (uint64 max), and the node then rejects every transaction with
+# "lack of funds for max fee" because it reserves gasLimit * maxFeePerGas up front (~11 ETH).
+# Matches the value used by deploy_v2_periphery_staging_prod.sh.
+SCRIPT_GAS_LIMIT="${SCRIPT_GAS_LIMIT:-1000000000}"
+
 ###################################################################################
 # Configure SuperGovernor Core Addresses Script
 ###################################################################################
@@ -150,7 +156,8 @@ for network_def in "${NETWORKS[@]}"; do
     # Skip etherscan verification for HyperEVM
     VERIFY_FLAGS=""
     SLOW_FLAG=""
-    if [ "$network_id" = "999" ] || [ "$network_id" = "14" ] || [ "$network_id" = "5042" ]; then
+    if [ "$network_id" = "999" ] || [ "$network_id" = "14" ] || [ "$network_id" = "5042" ] \
+        || [ "$network_id" = "747474" ]; then
         SLOW_FLAG="--slow"
     fi
 
@@ -158,6 +165,7 @@ for network_def in "${NETWORKS[@]}"; do
         --sig 'run(uint256,uint64)' $FORGE_ENV $network_id \
         --rpc-url "$rpc_url" \
         --chain $network_id \
+        --gas-limit "$SCRIPT_GAS_LIMIT" \
         $ACCOUNT_FLAG \
         $SENDER_FLAG \
         $BROADCAST_FLAG \

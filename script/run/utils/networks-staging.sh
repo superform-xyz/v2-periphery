@@ -14,6 +14,7 @@ NETWORKS=(
     "999:HyperEVM:HYPEREVM_MAINNET"
     "14:Flare:FLARE_MAINNET"
     # "5042:Arc:ARC_MAINNET"   # no staging deployment on Arc yet
+    # "747474:Katana:KATANA_MAINNET"   # no staging deployment on Katana yet
     "7091047534:Plataberget:PLATABERGET_TESTNET"
 )
 
