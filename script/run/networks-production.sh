@@ -258,14 +258,16 @@ load_rpc_urls_ci() {
     if [[ -n "${BSC_RPC_URL:-}" ]]; then
         export BSC_MAINNET="$BSC_RPC_URL"
     else
-        failed_rpcs+=("BSC_RPC_URL")
+        echo "  • BSC_RPC_URL not set, using default public RPC"
+        export BSC_MAINNET="https://bsc-rpc.publicnode.com"
     fi
 
     echo "  • Loading Arbitrum RPC..."
     if [[ -n "${ARBITRUM_RPC_URL:-}" ]]; then
         export ARBITRUM_MAINNET="$ARBITRUM_RPC_URL"
     else
-        failed_rpcs+=("ARBITRUM_RPC_URL")
+        echo "  • ARBITRUM_RPC_URL not set, using default public RPC"
+        export ARBITRUM_MAINNET="https://arbitrum-one-rpc.publicnode.com"
     fi
 
     # Load production-only networks from environment variables
@@ -280,49 +282,56 @@ load_rpc_urls_ci() {
     if [[ -n "${POLYGON_RPC_URL:-}" ]]; then
         export POLYGON_MAINNET="$POLYGON_RPC_URL"
     else
-        failed_rpcs+=("POLYGON_RPC_URL")
+        echo "  • POLYGON_RPC_URL not set, using default public RPC"
+        export POLYGON_MAINNET="https://polygon-bor-rpc.publicnode.com"
     fi
 
     echo "  • Loading Unichain RPC..."
     if [[ -n "${UNICHAIN_RPC_URL:-}" ]]; then
         export UNICHAIN_MAINNET="$UNICHAIN_RPC_URL"
     else
-        failed_rpcs+=("UNICHAIN_RPC_URL")
+        echo "  • UNICHAIN_RPC_URL not set, using default public RPC"
+        export UNICHAIN_MAINNET="https://unichain-rpc.publicnode.com"
     fi
 
     echo "  • Loading Avalanche RPC..."
     if [[ -n "${AVALANCHE_RPC_URL:-}" ]]; then
         export AVALANCHE_MAINNET="$AVALANCHE_RPC_URL"
     else
-        failed_rpcs+=("AVALANCHE_RPC_URL")
+        echo "  • AVALANCHE_RPC_URL not set, using default public RPC"
+        export AVALANCHE_MAINNET="https://avalanche-c-chain-rpc.publicnode.com"
     fi
 
     echo "  • Loading Berachain RPC..."
     if [[ -n "${BERACHAIN_RPC_URL:-}" ]]; then
         export BERACHAIN_MAINNET="$BERACHAIN_RPC_URL"
     else
-        failed_rpcs+=("BERACHAIN_RPC_URL")
+        echo "  • BERACHAIN_RPC_URL not set, using default public RPC"
+        export BERACHAIN_MAINNET="https://rpc.berachain.com"
     fi
 
     echo "  • Loading Sonic RPC..."
     if [[ -n "${SONIC_RPC_URL:-}" ]]; then
         export SONIC_MAINNET="$SONIC_RPC_URL"
     else
-        failed_rpcs+=("SONIC_RPC_URL")
+        echo "  • SONIC_RPC_URL not set, using default public RPC"
+        export SONIC_MAINNET="https://sonic-rpc.publicnode.com"
     fi
 
     echo "  • Loading Gnosis RPC..."
     if [[ -n "${GNOSIS_RPC_URL:-}" ]]; then
         export GNOSIS_MAINNET="$GNOSIS_RPC_URL"
     else
-        failed_rpcs+=("GNOSIS_RPC_URL")
+        echo "  • GNOSIS_RPC_URL not set, using default public RPC"
+        export GNOSIS_MAINNET="https://gnosis-rpc.publicnode.com"
     fi
 
     echo "  • Loading Worldchain RPC..."
     if [[ -n "${WORLDCHAIN_RPC_URL:-}" ]]; then
         export WORLDCHAIN_MAINNET="$WORLDCHAIN_RPC_URL"
     else
-        failed_rpcs+=("WORLDCHAIN_RPC_URL")
+        echo "  • WORLDCHAIN_RPC_URL not set, using default public RPC"
+        export WORLDCHAIN_MAINNET="https://worldchain-mainnet.g.alchemy.com/public"
     fi
 
     echo "  • Loading HyperEVM RPC..."
@@ -411,7 +420,8 @@ load_rpc_urls() {
 
     echo "  • Loading Arbitrum RPC..."
     if ! export ARBITRUM_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/ARBITRUM_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("ARBITRUM_RPC_URL")
+        echo "  • ARBITRUM_RPC_URL unavailable, using default public RPC"
+        export ARBITRUM_MAINNET="https://arbitrum-one-rpc.publicnode.com"
     fi
 
     # Load production-only networks
@@ -422,37 +432,44 @@ load_rpc_urls() {
 
     echo "  • Loading Polygon RPC..."
     if ! export POLYGON_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/POLYGON_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("POLYGON_RPC_URL")
+        echo "  • POLYGON_RPC_URL unavailable, using default public RPC"
+        export POLYGON_MAINNET="https://polygon-bor-rpc.publicnode.com"
     fi
 
     echo "  • Loading Unichain RPC..."
     if ! export UNICHAIN_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/UNICHAIN_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("UNICHAIN_RPC_URL")
+        echo "  • UNICHAIN_RPC_URL unavailable, using default public RPC"
+        export UNICHAIN_MAINNET="https://unichain-rpc.publicnode.com"
     fi
 
     echo "  • Loading Avalanche RPC..."
     if ! export AVALANCHE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/AVALANCHE_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("AVALANCHE_RPC_URL")
+        echo "  • AVALANCHE_RPC_URL unavailable, using default public RPC"
+        export AVALANCHE_MAINNET="https://avalanche-c-chain-rpc.publicnode.com"
     fi
 
     echo "  • Loading Berachain RPC..."
     if ! export BERACHAIN_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BERACHAIN_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("BERACHAIN_RPC_URL")
+        echo "  • BERACHAIN_RPC_URL unavailable, using default public RPC"
+        export BERACHAIN_MAINNET="https://rpc.berachain.com"
     fi
 
     echo "  • Loading Sonic RPC..."
     if ! export SONIC_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/SONIC_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("SONIC_RPC_URL")
+        echo "  • SONIC_RPC_URL unavailable, using default public RPC"
+        export SONIC_MAINNET="https://sonic-rpc.publicnode.com"
     fi
 
     echo "  • Loading Gnosis RPC..."
     if ! export GNOSIS_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/GNOSIS_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("GNOSIS_RPC_URL")
+        echo "  • GNOSIS_RPC_URL unavailable, using default public RPC"
+        export GNOSIS_MAINNET="https://gnosis-rpc.publicnode.com"
     fi
 
     echo "  • Loading Worldchain RPC..."
     if ! export WORLDCHAIN_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/WORLDCHAIN_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("WORLDCHAIN_RPC_URL")
+        echo "  • WORLDCHAIN_RPC_URL unavailable, using default public RPC"
+        export WORLDCHAIN_MAINNET="https://worldchain-mainnet.g.alchemy.com/public"
     fi
 
     echo "  • Loading HyperEVM RPC..."

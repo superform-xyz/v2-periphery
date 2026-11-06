@@ -95,10 +95,13 @@ import { IPLimitRouter } from "@pendle/interfaces/IPLimitRouter.sol";
 contract SuperVaultPendleTest is BaseSuperVaultTest {
     using Math for uint256;
 
-    // Fork configuration - pinned to block before Pendle pufETH market expiry
-    // This ensures deterministic tests and prevents failures due to market expiration
-    uint256 public constant FORK_BLOCK_NUMBER = 20_500_000; // Block before market
-    // 0x58612beB0e8a126735b19BB222cbC7fC2C162D2a expiry
+    // NOTE: this suite does not pin its own fork. BaseSuperVaultTest.setUp() -> v2-core's
+    // _preDeploymentSetup() selects FORKS[ETH] at ETH_BLOCK = 21_929_476 (v2-core
+    // test/utils/Constants.sol), which is where every test here actually runs; `useLatestFork` is
+    // false, so it is pinned. A previous `createSelectFork(.., 20_500_000)` here was dead code -
+    // BaseSuperVaultTest re-selects FORKS[ETH] afterwards - and that block predates both the
+    // pufETH market and CHAIN_1_PENDLE_SWAP, so do not reinstate it. The market
+    // (0x58612beB0e8a126735b19BB222cbC7fC2C162D2a, expiry 2025-06-26) is live at ETH_BLOCK.
 
     // Odos and Pendle addresses
     address public odosRouterAddress;
@@ -135,9 +138,6 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
     }
 
     function setUp() public override {
-        // Pin fork to specific block to ensure Pendle market is active
-        vm.createSelectFork(vm.envString(ETHEREUM_RPC_URL_KEY), FORK_BLOCK_NUMBER);
-
         super.setUp();
 
         updateTestVaultPredictions();
@@ -292,7 +292,10 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         assertGe(vars.ptBalance, minExpectedPT, "PT amount too low - possible slippage or swap issue");
 
         // Now swap PT back to underlying token using Pendle swap hook
-        // Warp forward past maturity (pufETH market expires around Nov 2024, we're at Oct 2024)
+        // Warp forward 60 days. NOTE: this does NOT cross maturity, but the margin is thinner than
+        // it looks: setUp() already warps ~35 days past the fork block's own 2025-02-26 timestamp
+        // (role + PPS + ledger timelocks), so the test body starts at 2025-04-02 and this warp
+        // lands on 2025-06-01 - only ~25 days before the pufETH market's 2025-06-26 expiry.
         vm.warp(block.timestamp + 60 days);
 
         // Setup swap PT back to token execution
@@ -857,13 +860,11 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         } else {
             revert("Not implemented");
         }
-        return abi.encodePacked(
-            bytes32(bytes("")), // yieldSourceOracleId
-            market_, // yieldSource
-            usePrevHookAmount_,
-            value_,
-            pendleTxData
-        );
+        // outputToken in the standardized header must equal the tokenOut the hook derives from
+        // txData; for swapExactTokenForPt that is the market's PT (see PendleRouterSwapHook
+        // _decodeTokenOut / OUTPUT_TOKEN_MISMATCH).
+        (, address ptOut_,) = _safeReadMarketTokens(market_);
+        return _encodePendleSwapHookData(market_, ptOut_, usePrevHookAmount_, value_, pendleTxData);
     }
 
     /// @notice Helper function to create Pendle swap hook data with custom slippage tolerance
@@ -905,13 +906,11 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         } else {
             revert("Not implemented");
         }
-        return abi.encodePacked(
-            bytes32(bytes("")), // yieldSourceOracleId
-            market_, // yieldSource
-            usePrevHookAmount_,
-            value_,
-            pendleTxData
-        );
+        // outputToken in the standardized header must equal the tokenOut the hook derives from
+        // txData; for swapExactTokenForPt that is the market's PT (see PendleRouterSwapHook
+        // _decodeTokenOut / OUTPUT_TOKEN_MISMATCH).
+        (, address ptOut_,) = _safeReadMarketTokens(market_);
+        return _encodePendleSwapHookData(market_, ptOut_, usePrevHookAmount_, value_, pendleTxData);
     }
 
     /// @notice Helper function to create Pendle swap hook data with limit order (order book)
@@ -944,13 +943,11 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         } else {
             revert("Not implemented");
         }
-        return abi.encodePacked(
-            bytes32(bytes("")), // yieldSourceOracleId
-            market_, // yieldSource
-            usePrevHookAmount_,
-            value_,
-            pendleTxData
-        );
+        // outputToken in the standardized header must equal the tokenOut the hook derives from
+        // txData; for swapExactTokenForPt that is the market's PT (see PendleRouterSwapHook
+        // _decodeTokenOut / OUTPUT_TOKEN_MISMATCH).
+        (, address ptOut_,) = _safeReadMarketTokens(market_);
+        return _encodePendleSwapHookData(market_, ptOut_, usePrevHookAmount_, value_, pendleTxData);
     }
 
     /// @notice Creates Pendle transaction data with limit order
@@ -1019,6 +1016,37 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         );
     }
 
+    /// @notice Encode hook data for PendleRouterSwapHook in the standardized SwapCalldataLayout
+    /// @dev Layout: 52-byte strategy header, then inputToken at 52, outputToken at 72,
+    ///      inputAmount at 92, outputQuote at 124, outputMin at 156, usePrevHookAmount at 188,
+    ///      payloadLength at 189, payload at 221 = abi.encode(market, value, pendleTxData).
+    ///      Mirrors v2-core's test/integration/pendle/PendleRouterHookTests.t.sol.
+    function _encodePendleSwapHookData(
+        address market_,
+        address outputToken_,
+        bool usePrevHookAmount_,
+        uint256 value_,
+        bytes memory pendleTxData_
+    )
+        internal
+        pure
+        returns (bytes memory)
+    {
+        bytes memory payload = abi.encode(market_, value_, pendleTxData_);
+        return bytes.concat(
+            bytes32(0), // placeholder0
+            bytes20(address(0)), // placeholder1
+            bytes20(address(0)), // inputToken
+            bytes20(outputToken_), // outputToken
+            bytes32(uint256(0)), // inputAmount
+            bytes32(uint256(0)), // outputQuote
+            bytes32(uint256(0)), // outputMin
+            usePrevHookAmount_ ? bytes1(0x01) : bytes1(0x00), // usePrevHookAmount
+            bytes32(payload.length), // payloadLength
+            payload
+        );
+    }
+
     function _createPendleRedeemHookData(
         uint256 amount,
         address yt,
@@ -1032,14 +1060,29 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
         pure
         returns (bytes memory)
     {
-        return abi.encodePacked(
-            amount,
+        // PendleRouterRedeemHook uses the standardized SwapCalldataLayout: 52-byte header, then
+        // inputToken@52, outputToken@72 (must equal payload tokenOut), inputAmount@92 (the redeem
+        // amount), outputQuote@124, outputMin@156, usePrevHookAmount@188, payloadLength@189,
+        // payload@221 = abi.encode(yieldSource, yt, pt, tokenOut, minTokenOut, TokenOutput).
+        bytes memory payload = abi.encode(
+            address(0), // yieldSource - read past by the hook
             yt,
             pt,
             tokenOut,
             minTokenOut,
-            usePrevHookAmount,
-            abi.encode(_createPendleRedeemTokenOutput(tokenOut, minTokenOut, tokenRedeemSy))
+            _createPendleRedeemTokenOutput(tokenOut, minTokenOut, tokenRedeemSy)
+        );
+        return bytes.concat(
+            bytes32(0), // placeholder0
+            bytes20(address(0)), // placeholder1
+            bytes20(pt), // inputToken
+            bytes20(tokenOut), // outputToken
+            bytes32(amount), // inputAmount
+            bytes32(uint256(0)), // outputQuote
+            bytes32(minTokenOut), // outputMin
+            usePrevHookAmount ? bytes1(0x01) : bytes1(0x00), // usePrevHookAmount
+            bytes32(payload.length), // payloadLength
+            payload
         );
     }
 
@@ -1172,12 +1215,7 @@ contract SuperVaultPendleTest is BaseSuperVaultTest {
             })
         );
 
-        return abi.encodePacked(
-            bytes32(bytes("")), // yieldSourceOracleId
-            market_, // yieldSource
-            usePrevHookAmount_,
-            value_,
-            pendleTxData
-        );
+        // swapExactPtForToken: the hook derives tokenOut from output.tokenOut
+        return _encodePendleSwapHookData(market_, tokenOut_, usePrevHookAmount_, value_, pendleTxData);
     }
 }

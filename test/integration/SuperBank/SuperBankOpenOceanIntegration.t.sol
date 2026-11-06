@@ -168,9 +168,23 @@ contract SuperBankOpenOceanIntegration is Test {
             "&referrer=", _toChecksumString(OPENOCEAN_REFERRER),
             "&enabledDexIds=6"
         );
-        (uint256 status,) = url.get();
+        (uint256 status,) = url.get(_openOceanHeaders());
         if (status != 200) {
             vm.skip(true);
+        }
+    }
+
+    /// @dev open-api-pro.openocean.finance is key-gated. Optional so the suite still runs
+    ///      locally without one; set OPENOCEAN_API_KEY to give CI its own quota.
+    function _openOceanHeaders() internal returns (string[] memory headers) {
+        string memory apiKey = vm.envOr("OPENOCEAN_API_KEY", string(""));
+        if (bytes(apiKey).length > 0) {
+            headers = new string[](2);
+            headers[0] = "Content-Type: application/json";
+            headers[1] = string.concat("apikey: ", apiKey);
+        } else {
+            headers = new string[](1);
+            headers[0] = "Content-Type: application/json";
         }
     }
 
@@ -198,11 +212,22 @@ contract SuperBankOpenOceanIntegration is Test {
             "&enabledDexIds=6"
         );
 
-        (uint256 status, bytes memory data) = url.get();
-        require(status == 200, "OpenOcean API call failed");
+        (uint256 status, bytes memory data) = url.get(_openOceanHeaders());
 
         string memory json = string(data);
-        txData_ = _fromHex(_extractQuotedString(json, '"data":"'));
+        string memory txDataHex = _extractQuotedString(json, '"data":"');
+
+        // OpenOcean answers HTTP 200 with an error body on quote failures, so a status check is
+        // not enough. Skip rather than revert: an unobtainable third-party quote is an
+        // environment condition, not a contract defect.
+        if (status != 200 || bytes(txDataHex).length < 2) {
+            console2.log("OpenOcean returned no usable quote; skipping. status:", status);
+            console2.log("body:", json);
+            vm.skip(true);
+            return (bytes(""), 0);
+        }
+
+        txData_ = _fromHex(txDataHex);
         minOutAmount_ = _stringToUint(_extractQuotedString(json, '"minOutAmount":"'));
     }
 

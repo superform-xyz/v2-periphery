@@ -24,8 +24,10 @@ interface IAggregatorLegacy {
 ///         (GAS->WEI, NATIVE->USD, UP->USD) -> Math.mulDiv ceil, against live deployed
 ///         contracts and live feed data - no mocks.
 /// @dev Three groups:
-///      1. Chainlink-only (current production state): the live Fast Gas feed drives the cost;
-///         we replicate the 3-hop math manually and assert bit-exact equality.
+///      1. Default GAS->WEI path as currently registered in production: we replicate the 3-hop
+///         math manually and assert bit-exact equality. NOTE: the SUPERFORM provider is now
+///         registered and live on mainnet (GAS->WEI reports totalProviders=2), so this group no
+///         longer isolates Chainlink - it exercises whatever the registry currently resolves.
 ///      2. Basefee-only (post-migration, Fast Gas staled out): BasefeeGasOracle drives the cost;
 ///         same bit-exact replication from block.basefee.
 ///      3. Comparisons: raw answers, per-provider GAS->WEI quotes, and full upkeep costs across
@@ -57,6 +59,16 @@ contract UpkeepCostRealFlowTest is Test {
     uint256 constant INITIAL_PRIORITY_FEE_WEI = 1_000_000; // 0.001 gwei
 
     uint256 constant TIMELOCK_PERIOD = 1 weeks;
+
+    /// @dev Magnitude band used by the cross-feed comparisons below. Its only job is to catch a
+    ///      units/decimals mistake, which shows up as a ~1e9 factor (wei vs gwei) - so 1000x
+    ///      detects it with six orders of margin. It is deliberately NOT a tight economic band:
+    ///      the Chainlink Fast Gas feed is a ~25%-deviation / 2h-heartbeat push feed estimating a
+    ///      fast-inclusion gas price, while BasefeeGasOracle recomputes 2x block.basefee every
+    ///      block. Basefee moves +/-12.5% per block, so the two legitimately diverge far more than
+    ///      a few x (measured over 18 days of mainnet blocks: p99 4.0x, max 36.4x). Bounding them
+    ///      against each other tightly fails on live gas dynamics, not on defects.
+    uint256 constant UNIT_SANITY_BAND = 1000;
 
     SuperGovernor public governor;
     SuperOracle public superOracle;
@@ -94,7 +106,7 @@ contract UpkeepCostRealFlowTest is Test {
     }
 
     /*//////////////////////////////////////////////////////////////
-                 GROUP 1: CHAINLINK-ONLY (PRODUCTION STATE)
+              GROUP 1: DEFAULT PATH AS REGISTERED IN PRODUCTION
     //////////////////////////////////////////////////////////////*/
 
     /// @notice The GAS->WEI quote through SuperOracle must equal the raw Fast Gas feed answer
@@ -196,8 +208,8 @@ contract UpkeepCostRealFlowTest is Test {
             basefeeOracle.decimals(), AggregatorV3Interface(CHAINLINK_GAS_ORACLE).decimals(), "decimals must match"
         );
         // Same order of magnitude: a 1e9 unit error in either direction blows this band
-        assertLe(uint256(bfAnswer), uint256(clAnswer) * 5, "basefee answer >5x Chainlink");
-        assertGe(uint256(bfAnswer) * 5, uint256(clAnswer), "basefee answer <0.2x Chainlink");
+        assertLe(uint256(bfAnswer), uint256(clAnswer) * UNIT_SANITY_BAND, "basefee answer out of band vs Chainlink");
+        assertGe(uint256(bfAnswer) * UNIT_SANITY_BAND, uint256(clAnswer), "basefee answer out of band vs Chainlink");
     }
 
     /// @notice Legacy-interface level: latestAnswer() on BasefeeGasOracle and on the live
@@ -225,8 +237,8 @@ contract UpkeepCostRealFlowTest is Test {
         // or wei/gwei mismatch (1e9-scale) blows this band by ~8 orders of magnitude
         assertGt(clLegacy, 0, "Fast Gas legacy answer must be positive");
         assertGt(bfLegacy, 0, "BasefeeGasOracle legacy answer must be positive");
-        assertLe(uint256(bfLegacy), uint256(clLegacy) * 5, "latestAnswer >5x Fast Gas: unit mismatch");
-        assertGe(uint256(bfLegacy) * 5, uint256(clLegacy), "latestAnswer <0.2x Fast Gas: unit mismatch");
+        assertLe(uint256(bfLegacy), uint256(clLegacy) * UNIT_SANITY_BAND, "latestAnswer out of band: unit mismatch");
+        assertGe(uint256(bfLegacy) * UNIT_SANITY_BAND, uint256(clLegacy), "latestAnswer out of band: unit mismatch");
     }
 
     /// @notice Provider level: after migration both providers serve GAS->WEI; the AVERAGE path
@@ -248,15 +260,16 @@ contract UpkeepCostRealFlowTest is Test {
         assertEq(totalProviders, 2, "both providers registered");
         assertEq(availableProviders, 2, "both providers live");
         assertEq(avgQuote, (clQuote + sfQuote) / 2, "AVERAGE must be the exact integer mean");
-        // Sanity band between the sources themselves
-        assertLe(sfQuote, clQuote * 5, "SUPERFORM quote >5x CHAINLINK");
-        assertGe(sfQuote * 5, clQuote, "SUPERFORM quote <0.2x CHAINLINK");
+        // Sanity band between the sources themselves (units only - see UNIT_SANITY_BAND)
+        assertLe(sfQuote, clQuote * UNIT_SANITY_BAND, "SUPERFORM quote out of band vs CHAINLINK");
+        assertGe(sfQuote * UNIT_SANITY_BAND, clQuote, "SUPERFORM quote out of band vs CHAINLINK");
     }
 
     /// @notice Full-cost level: upkeep cost across the three regimes on the same fork block -
     ///         Chainlink-only (production today), blended AVERAGE, and basefee-only (post-freeze)
     function test_Compare_UpkeepCost_AcrossAllThreeRegimes() public {
-        // Regime 1: production today - Chainlink Fast Gas only
+        // Regime 1: production today - the default GAS->WEI path as registered. Both providers
+        // are live on mainnet now, so this is already the blend, not Chainlink alone.
         uint256 chainlinkOnlyCost = governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE);
 
         // Regime 2: post-migration, both feeds live - blended AVERAGE
@@ -269,7 +282,7 @@ contract UpkeepCostRealFlowTest is Test {
         uint256 basefeeOnlyCost = governor.getUpkeepCostPerSingleUpdate(ECDSA_PPS_ORACLE);
 
         console2.log("=== Upkeep cost per single update (UP token) ===");
-        console2.log("Regime 1 - Chainlink only:", chainlinkOnlyCost);
+        console2.log("Regime 1 - default registered path:", chainlinkOnlyCost);
         console2.log("Regime 2 - blended AVERAGE:", blendedCost);
         console2.log("Regime 3 - basefee only:", basefeeOnlyCost);
         console2.log("basefee/chainlink cost ratio (bps):", basefeeOnlyCost * 10_000 / chainlinkOnlyCost);
@@ -290,7 +303,10 @@ contract UpkeepCostRealFlowTest is Test {
         // Band [0.2x, 3x]: catches unit errors while tolerating the deliberate 2x multiplier -
         // 2x basefee legitimately approaches/exceeds 2x the Fast Gas cost when the feed's
         // fast-premium compresses toward 1.0. Upper bound = MAX_MULTIPLIER_BPS (3x).
-        assertLe(basefeeOnlyCost, chainlinkOnlyCost * 3, "basefee cost >3x Chainlink cost");
+        // NOTE: with both providers live, regime 1 is the blend, so this ratio is
+        // 2*sf/(cl+sf) <= 2 by construction and the 3x ceiling can no longer be reached.
+        // It is kept as a units guard only; it does not bound the Chainlink-vs-basefee spread.
+        assertLe(basefeeOnlyCost, chainlinkOnlyCost * 3, "basefee cost >3x registered-path cost");
         assertGe(basefeeOnlyCost * 5, chainlinkOnlyCost, "basefee cost <0.2x Chainlink cost");
     }
 

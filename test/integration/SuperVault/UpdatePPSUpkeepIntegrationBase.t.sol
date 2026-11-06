@@ -575,14 +575,18 @@ contract UpdatePPSUpkeepIntegrationBaseTest is Test {
         // ============================================================
         console2.log("=== Step 5: Set up SuperBank hook merkle root ===");
 
-        // Create the hook data for transferring WETH to treasury
-        // Data format: token (20 bytes) + to (20 bytes) + amount (32 bytes) + usePrevHookAmount (1 byte)
+        // Create the hook data for transferring WETH to treasury.
+        // TransferERC20Hook takes the standard 52-byte strategy header first (see the layout doc
+        // on the hook): bytes32 placeholder0 + address placeholder1, then the hook-specific
+        // fields at offsets 52/72/92/124. Total 125 bytes.
         uint256 transferAmount = superBankBalanceAfterClaim;
         bytes memory hookData = abi.encodePacked(
-            WETH_BASE,      // token (20 bytes)
-            treasury,       // to (20 bytes)
-            transferAmount, // amount (32 bytes)
-            false           // usePrevHookAmount (1 byte) - use explicit amount
+            bytes32(0), // placeholder0 (32 bytes) - strategy header
+            address(0), // placeholder1 (20 bytes) - strategy header
+            WETH_BASE, // token at 52 (20 bytes)
+            treasury, // to at 72 (20 bytes)
+            transferAmount, // amount at 92 (32 bytes)
+            false // usePrevHookAmount at 124 (1 byte) - use explicit amount
         );
 
         // Get hook args from inspect() - this is what goes into the merkle leaf
