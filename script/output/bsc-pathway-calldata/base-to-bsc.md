@@ -5,7 +5,7 @@
 **LZ Endpoint:** `0x1a44076050125825900e736c501f859c50fE728c`
 **BSC peer (UpOFT, eid 30102):** `0x5b2193fDc451C1f847bE09CA9d13A4Bf60f8c86B`
 
-> Wires the reverse direction of the BSC pathway (BSC side + RH<->BSC already> configured via script/run/deploy_up_oft_bsc.sh). Same setup as all other pathways:> pinned libraries, 20 confirmations, 4 required DVNs, canonical enforced options.
+> Wires the reverse direction of the BSC pathway (BSC side + RH<->BSC already> configured via script/run/deploy/deploy_up_oft_bsc.sh). Same setup as all other pathways:> pinned libraries, 20 confirmations, 4 required DVNs, canonical enforced options.
 
 ---
 

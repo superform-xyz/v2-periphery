@@ -30,9 +30,18 @@ abstract contract DeployV2Base is Script, ConfigBase {
     mapping(uint64 => mapping(string => ContractStatus)) internal contractDeploymentStatus;
     mapping(uint64 => string[]) internal allContractNames;
 
+    /// @notice The address transactions are actually broadcast from for this run.
+    /// @dev NOT always msg.sender. For env == 1 the modifier below derives a key from MNEMONIC and
+    ///      broadcasts from that, while msg.sender stays foundry's default sender. Any script doing
+    ///      an identity pre-check ("is the caller the operator?") must compare against this, not
+    ///      against msg.sender, or the check is meaningless on vnet and only works elsewhere
+    ///      because the runner happens to pass --sender.
+    address internal _broadcaster;
+
     modifier broadcast(uint256 env) {
         if (env == 1) {
             (address deployer,) = deriveRememberKey(MNEMONIC, 0);
+            _broadcaster = deployer;
             console2.log("Deployer: ", deployer);
             vm.startBroadcast(deployer);
             _;
@@ -40,6 +49,7 @@ abstract contract DeployV2Base is Script, ConfigBase {
         } else {
             // For production and staging, use --account flag (msg.sender will be set by foundry)
             // The --account flag automatically sets up the signer
+            _broadcaster = msg.sender;
             console2.log("Broadcast msg.sender:", msg.sender);
             vm.startBroadcast();
             _;
@@ -532,5 +542,42 @@ abstract contract DeployV2Base is Script, ConfigBase {
             return exportedContracts[chainId];
         }
         return result;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                          OUTPUT JSON PATH
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Path to the chain's output JSON for the given environment
+    /// @dev Shared by the Counsel deploy and configure scripts, which used to carry identical copies.
+    function _outputJsonPath(
+        uint256 env,
+        uint64 chainId,
+        string calldata branchName
+    )
+        internal
+        view
+        returns (string memory)
+    {
+        string memory envFolder;
+        if (env == 0) {
+            envFolder = "prod";
+        } else if (env == 1) {
+            envFolder = branchName;
+        } else {
+            envFolder = "staging";
+        }
+        return string(
+            abi.encodePacked(
+                vm.projectRoot(),
+                "/script/output/",
+                envFolder,
+                "/",
+                vm.toString(uint256(chainId)),
+                "/",
+                chainNames[chainId],
+                "-latest.json"
+            )
+        );
     }
 }

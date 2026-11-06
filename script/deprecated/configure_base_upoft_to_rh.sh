@@ -15,8 +15,8 @@
 # DELETE THIS FILE (and the .s.sol) AFTER EXECUTION.
 #
 # Usage:
-#   ./script/run/configure_base_upoft_to_rh.sh simulate
-#   ./script/run/configure_base_upoft_to_rh.sh execute [account]
+#   ./script/deprecated/configure_base_upoft_to_rh.sh simulate
+#   ./script/deprecated/configure_base_upoft_to_rh.sh execute [account]
 #
 #   simulate: dry-run against Base with the delegate EOA as sender (no broadcast)
 #   execute:  broadcast with the local keystore account (default: v2-supervaults)

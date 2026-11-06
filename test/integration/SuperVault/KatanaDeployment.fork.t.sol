@@ -241,11 +241,31 @@ contract KatanaDeploymentForkTest is Test {
                        3. VAULT CREATION LIFECYCLE
     //////////////////////////////////////////////////////////////*/
 
-    function test_Fork_Katana_NoVaultExistedBefore() public view {
-        assertEq(aggregator.getSuperVaultsCount(), 0, "Katana has no SuperVault yet");
+    /// @notice The aggregator's vault registry is self-consistent. This replaces an earlier
+    ///         assertion that Katana had zero SuperVaults: that was true only in the days right
+    ///         after deployment, and a real vault has since been created on chain, so the claim
+    ///         can never hold again. Counts and enumeration are checked instead, which stays
+    ///         meaningful as the deployment grows.
+    function test_Fork_Katana_VaultRegistryIsConsistent() public view {
+        address[] memory vaults = aggregator.getAllSuperVaults();
+        assertEq(vaults.length, aggregator.getSuperVaultsCount(), "enumeration matches the count");
+        assertEq(
+            aggregator.getSuperVaultStrategiesCount(),
+            aggregator.getSuperVaultsCount(),
+            "one strategy per vault"
+        );
+        assertEq(
+            aggregator.getSuperVaultEscrowsCount(), aggregator.getSuperVaultsCount(), "one escrow per vault"
+        );
+        for (uint256 i; i < vaults.length; ++i) {
+            assertGt(vaults[i].code.length, 0, "every registered vault is deployed");
+        }
     }
 
     function test_Fork_Katana_CreateVault() public {
+        // Unpinned fork against a live chain, so the registry grows underneath us. Assert the
+        // delta this test is responsible for, not an absolute total.
+        uint256 vaultsBefore = aggregator.getSuperVaultsCount();
         (address vault, address strategy, address escrow) = _createVault();
 
         assertGt(vault.code.length, 0, "vault clone");
@@ -260,7 +280,7 @@ contract KatanaDeploymentForkTest is Test {
         assertFalse(aggregator.isStrategyPaused(strategy), "fresh strategy live");
         assertFalse(aggregator.isPPSStale(strategy), "fresh PPS");
         assertEq(IERC4626(vault).totalAssets(), 0, "fresh vault is empty");
-        assertEq(aggregator.getSuperVaultsCount(), 1, "aggregator counts the new vault");
+        assertEq(aggregator.getSuperVaultsCount(), vaultsBefore + 1, "aggregator counts the new vault");
     }
 
     function test_Fork_Katana_CreateVaultAndDeposit() public {
@@ -1203,6 +1223,7 @@ contract KatanaDeploymentForkTest is Test {
     /// @notice Two vaults on the same asset keep separate accounting: a PPS move on one does not
     ///         touch the other.
     function test_Fork_Katana_TwoVaultsOnSameAssetAreIndependent() public {
+        uint256 vaultsBefore = aggregator.getSuperVaultsCount();
         (address vaultA, address strategyA,) = _createVault();
         (address vaultB, address strategyB,) = _createVaultWithFees(0, 0);
         assertTrue(vaultA != vaultB, "distinct vaults");
@@ -1222,7 +1243,7 @@ contract KatanaDeploymentForkTest is Test {
         assertEq(aggregator.getPPS(strategyB), 1e6, "B untouched");
         assertEq(IERC4626(vaultA).totalAssets(), 120e6, "A grew");
         assertEq(IERC4626(vaultB).totalAssets(), 100e6, "B flat");
-        assertEq(aggregator.getSuperVaultsCount(), 2, "both counted");
+        assertEq(aggregator.getSuperVaultsCount(), vaultsBefore + 2, "both counted");
     }
 
     /// @notice A secondary manager can execute hooks, which is how the SuperVaultExecutor and

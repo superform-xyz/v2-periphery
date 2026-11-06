@@ -77,7 +77,7 @@ contract ConfigureV2Periphery is DeployV2Base {
         // Revert rather than return: a silent `return` here exits the forge script with status 0,
         // so the shell runner reported "Successfully configured hooks" while nothing was written.
         // The usual cause is that script/output/{env}/latest.json has no entry for this chain yet -
-        // run script/run/merge_periphery_to_core_local_prod.sh after deploying to merge the
+        // run script/run/tooling/merge_periphery_to_core_local_prod.sh after deploying to merge the
         // per-chain file into it.
         require(params.superGovernor != address(0), "SUPER_GOVERNOR_NOT_FOUND_RUN_MERGE_SCRIPT");
 

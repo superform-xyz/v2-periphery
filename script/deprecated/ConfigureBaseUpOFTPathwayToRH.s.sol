@@ -23,7 +23,7 @@ import { ExecutorConfig } from "@layerzerolabs/lz-evm-messagelib-v2/contracts/Se
 ///      Each built calldata is asserted byte-for-byte against the reviewed calldata in the md
 ///      before being sent. Already-applied steps are skipped.
 ///
-/// Run: ./script/run/configure_base_upoft_to_rh.sh {simulate|execute}
+/// Run: ./script/deprecated/configure_base_upoft_to_rh.sh {simulate|execute}
 contract ConfigureBaseUpOFTPathwayToRH is Script {
     uint256 internal constant BASE_CHAIN_ID = 8453;
     uint32 internal constant RH_EID = 30_416;
