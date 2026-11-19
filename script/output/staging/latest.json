@@ -135,9 +135,7 @@
         "StargateSendHookV2": "0x3d9C8A576c5B816ce1a821c1BA79a049249A9e13",
         "AcrossSendFundsAndExecuteOnDstHookV2": "0x732bE847E95172491Fe76D418454c1ebf7213efD",
         "AcrossV3AdapterV2": "0x94c8eB189B6eD06d86bad1b954B91236dD821B6C",
-        "ApproveAndAcrossSendFundsAndExecuteOnDstHookV2": "0x2C059F170741a41C936D26f1Ac06DbdF23C140D9",
-        "MorphoBorrowCostOracle": "0x8f21F381CA2F61d7f2aAd875cE42Df272bB5802A",
-        "MorphoLendYieldSourceOracle": "0xeb8CEC4d504eB3cdc6a91AE688aCa6aB576C4A29"
+        "ApproveAndAcrossSendFundsAndExecuteOnDstHookV2": "0x2C059F170741a41C936D26f1Ac06DbdF23C140D9"
       }
     },
     "Base": {
@@ -268,8 +266,6 @@
         "StargateAdapterV2": "0x99a6A9EFee5650FA7F93d987dD5E973f894Daef5",
         "StargateSendHookV2": "0x3d9C8A576c5B816ce1a821c1BA79a049249A9e13",
         "Withdraw7540VaultHook": "0x299912843Df875b21094c5551880C7CaB6277d31",
-        "MorphoBorrowCostOracle": "0x8f21F381CA2F61d7f2aAd875cE42Df272bB5802A",
-        "MorphoLendYieldSourceOracle": "0xeb8CEC4d504eB3cdc6a91AE688aCa6aB576C4A29",
         "ValidatorBonding": "0xAcf728b6675b829EfCdA50947aaCBB8066e0A58B"
       }
     },
