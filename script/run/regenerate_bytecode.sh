@@ -95,8 +95,6 @@ CORE_PERIPHERY_CONTRACTS=(
     "UpOFT"
     "UpOFTAdapter"
     "SuperformGasOracle"
-    "MorphoLendYieldSourceOracle"
-    "MorphoBorrowCostOracle"
     "ValidatorBonding"
 )
 
@@ -121,8 +119,6 @@ get_contract_source() {
         "UpOFT") echo "src/UP/UpOFT.sol" ;;
         "UpOFTAdapter") echo "src/UP/UpOFTAdapter.sol" ;;
         "Up") echo "src/UP/Up.sol" ;;
-        "MorphoLendYieldSourceOracle") echo "src/oracles/MorphoLendYieldSourceOracle.sol" ;;
-        "MorphoBorrowCostOracle") echo "src/oracles/MorphoBorrowCostOracle.sol" ;;
         "ValidatorBonding") echo "src/ValidatorBonding.sol" ;;
         *) echo "" ;;
     esac

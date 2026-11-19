@@ -790,8 +790,6 @@
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",
         "SuperOracleL2": "0xDd004b9F749014cD7bd73dC0818345c66bc641c8",
         "SuperBank": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
-        "MorphoBorrowCostOracle": "0x59A4D5edefff0eD20f71FaCC0D7C5569142054Df",
-        "MorphoLendYieldSourceOracle": "0x792c23150df9673c67498680c744DAC2a38AAF8a",
         "ValidatorBonding": "0x2466b82212f3ee3ee5FFA1b925eF5ec3Fa3c67C7"
       }
     },
@@ -1101,9 +1099,7 @@
         "ECDSAPPSOracle": "0x366d88F03B8EF34eb49F32a927ff6e1609F694F2",
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",
         "SuperOracle": "0x8943128DbAb4279D561654dEED2930Bb975AA070",
-        "SuperBank": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15",
-        "MorphoBorrowCostOracle": "0x59A4D5edefff0eD20f71FaCC0D7C5569142054Df",
-        "MorphoLendYieldSourceOracle": "0x792c23150df9673c67498680c744DAC2a38AAF8a"
+        "SuperBank": "0x6fCc6a6A825FC14e6e56Fd14978FC6B97ACB5d15"
       }
     },
     "Flare": {

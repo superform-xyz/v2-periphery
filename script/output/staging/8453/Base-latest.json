@@ -1,8 +1,6 @@
 {
   "ECDSAPPSOracle": "0x68718f31849f266dF64df08320776a39f06efaBd",
   "FixedPriceOracle": "0xb1E823c84e4aa9Ca38e2f82d3131412254099197",
-  "MorphoBorrowCostOracle": "0x8f21F381CA2F61d7f2aAd875cE42Df272bB5802A",
-  "MorphoLendYieldSourceOracle": "0xeb8CEC4d504eB3cdc6a91AE688aCa6aB576C4A29",
   "SuperBank": "0x69d53e376264EEb567213f07d8136050f99eeeC0",
   "SuperformGasOracle": "0xCa35c983e810fBFe952A6CA59120fd9a8d2d58e3",
   "SuperGovernor": "0x0370F5F5f1a63688b16c60D59B19C7469ddb3D6b",
