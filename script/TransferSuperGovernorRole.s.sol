@@ -53,7 +53,7 @@ contract TransferSuperGovernorRole is DeployV2Base {
         console2.log("SuperGovernor address:", superGovernorAddr);
         console2.log("Current holder (deployer):", DEPLOYER);
         console2.log("New GOVERNOR:", GOVERNOR);
-        console2.log("New SUPER_GOVERNOR:", SUPER_GOVERNOR_ADDRESS);
+        console2.log("New SUPER_GOVERNOR:", _superGovernorSafe(chainId));
 
         // Check if roles are already transferred and skip if so
         if (_checkAndSkipIfAlreadyTransferred(superGovernorAddr, chainId, env, saltNamespace)) {
@@ -64,7 +64,7 @@ contract TransferSuperGovernorRole is DeployV2Base {
         // grantRole does not check for code, so transferring DEFAULT_ADMIN_ROLE to a codeless address
         // would strand the SuperGovernor permanently (observed 2026-09-10: the Safe exists on
         // Ethereum/Base/BSC but had no code on RH).
-        require(SUPER_GOVERNOR_ADDRESS.code.length > 0, "SAFE_NOT_DEPLOYED_ON_THIS_CHAIN");
+        require(_superGovernorSafe(chainId).code.length > 0, "SAFE_NOT_DEPLOYED_ON_THIS_CHAIN");
 
         // Continue with transfer
         _executeRoleTransfer(superGovernorAddr, chainId, env, saltNamespace);
@@ -92,8 +92,8 @@ contract TransferSuperGovernorRole is DeployV2Base {
 
         // Check new addresses have roles (should all be true if already transferred)
         bool newAddressesHaveRoles = sg.hasRole(keccak256("GOVERNOR_ROLE"), GOVERNOR)
-            && sg.hasRole(keccak256("SUPER_GOVERNOR_ROLE"), SUPER_GOVERNOR_ADDRESS)
-            && sg.hasRole(sg.DEFAULT_ADMIN_ROLE(), SUPER_GOVERNOR_ADDRESS);
+            && sg.hasRole(keccak256("SUPER_GOVERNOR_ROLE"), _superGovernorSafe(chainId))
+            && sg.hasRole(sg.DEFAULT_ADMIN_ROLE(), _superGovernorSafe(chainId));
 
         console2.log("Deployer still has roles:", deployerHasRoles);
         console2.log("New addresses have roles:", newAddressesHaveRoles);
@@ -156,13 +156,13 @@ contract TransferSuperGovernorRole is DeployV2Base {
 
         // Step 3: Grant SUPER_GOVERNOR_ROLE to new address
         console2.log("[Step 3] Granting SUPER_GOVERNOR_ROLE to new address...");
-        superGovernor.grantRole(superGovernorRole, SUPER_GOVERNOR_ADDRESS);
-        console2.log("[Step 3] DONE - Granted SUPER_GOVERNOR_ROLE to:", SUPER_GOVERNOR_ADDRESS);
+        superGovernor.grantRole(superGovernorRole, _superGovernorSafe(chainId));
+        console2.log("[Step 3] DONE - Granted SUPER_GOVERNOR_ROLE to:", _superGovernorSafe(chainId));
 
         // Step 4: Grant DEFAULT_ADMIN_ROLE to new address
         console2.log("[Step 4] Granting DEFAULT_ADMIN_ROLE to new address...");
-        superGovernor.grantRole(defaultAdminRole, SUPER_GOVERNOR_ADDRESS);
-        console2.log("[Step 4] DONE - Granted DEFAULT_ADMIN_ROLE to:", SUPER_GOVERNOR_ADDRESS);
+        superGovernor.grantRole(defaultAdminRole, _superGovernorSafe(chainId));
+        console2.log("[Step 4] DONE - Granted DEFAULT_ADMIN_ROLE to:", _superGovernorSafe(chainId));
 
         // Step 5: Revoke SUPER_GOVERNOR_ROLE from deployer
         console2.log("[Step 5] Revoking SUPER_GOVERNOR_ROLE from deployer...");
@@ -178,17 +178,18 @@ contract TransferSuperGovernorRole is DeployV2Base {
         _transferFixedPriceOracleOwnership(chainId, env, saltNamespace, superGovernorAddr);
 
         // Verify final state
-        _verifyFinalState(superGovernor, governorRole, superGovernorRole, defaultAdminRole);
+        _verifyFinalState(superGovernor, chainId, governorRole, superGovernorRole, defaultAdminRole);
 
         console2.log("");
         console2.log("=== Role Transfer Complete ===");
         console2.log("GOVERNOR_ROLE transferred to:", GOVERNOR);
-        console2.log("SUPER_GOVERNOR_ROLE transferred to:", SUPER_GOVERNOR_ADDRESS);
+        console2.log("SUPER_GOVERNOR_ROLE transferred to:", _superGovernorSafe(chainId));
     }
 
     /// @notice Verify final state after role transfer
     function _verifyFinalState(
         SuperGovernor superGovernor,
+        uint64 chainId,
         bytes32 governorRole,
         bytes32 superGovernorRole,
         bytes32 defaultAdminRole
@@ -203,8 +204,8 @@ contract TransferSuperGovernorRole is DeployV2Base {
         bool deployerHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, DEPLOYER);
         bool deployerHasAdminRole = superGovernor.hasRole(defaultAdminRole, DEPLOYER);
         bool newGovernorHasRole = superGovernor.hasRole(governorRole, GOVERNOR);
-        bool newHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, SUPER_GOVERNOR_ADDRESS);
-        bool newHasAdminRole = superGovernor.hasRole(defaultAdminRole, SUPER_GOVERNOR_ADDRESS);
+        bool newHasSuperGovernorRole = superGovernor.hasRole(superGovernorRole, _superGovernorSafe(chainId));
+        bool newHasAdminRole = superGovernor.hasRole(defaultAdminRole, _superGovernorSafe(chainId));
 
         console2.log("Deployer has GOVERNOR_ROLE:", deployerHasGovernorRole);
         console2.log("Deployer has SUPER_GOVERNOR_ROLE:", deployerHasSuperGovernorRole);
@@ -222,6 +223,17 @@ contract TransferSuperGovernorRole is DeployV2Base {
     }
 
     /// @notice Get SuperGovernor address from deployment files
+    /// @notice Resolve the Safe that should hold SUPER_GOVERNOR_ROLE and DEFAULT_ADMIN_ROLE
+    /// @dev Flare's Safe is at a DIFFERENT address than every other chain's;
+    ///      SUPER_GOVERNOR_ADDRESS has no code on Flare, so granting there would strand the
+    ///      roles permanently (as already happened to the Flare SuperVaultBatchOperator).
+    function _superGovernorSafe(uint64 chainId) internal pure returns (address) {
+        if (chainId == FLARE_CHAIN_ID) {
+            return FLARE_SUPER_GOVERNOR_ADDRESS;
+        }
+        return SUPER_GOVERNOR_ADDRESS;
+    }
+
     function _getSuperGovernorAddress(
         uint64 chainId,
         uint256 env,
@@ -308,17 +320,17 @@ contract TransferSuperGovernorRole is DeployV2Base {
             address currentOwner = oracle.owner();
             console2.log("  FixedPriceOracle address:", fixedPriceOracleAddr);
             console2.log("  Current owner:", currentOwner);
-            console2.log("  New owner (SUPER_GOVERNOR_ADDRESS):", SUPER_GOVERNOR_ADDRESS);
+            console2.log("  New owner (SUPER_GOVERNOR_ADDRESS):", _superGovernorSafe(chainId));
 
             if (currentOwner == DEPLOYER) {
-                oracle.transferOwnership(SUPER_GOVERNOR_ADDRESS);
+                oracle.transferOwnership(_superGovernorSafe(chainId));
                 console2.log("[Step 7] DONE - Transferred FixedPriceOracle ownership to SUPER_GOVERNOR_ADDRESS");
 
                 // Verify ownership transfer
                 address newOwner = oracle.owner();
-                require(newOwner == SUPER_GOVERNOR_ADDRESS, "FixedPriceOracle ownership transfer failed");
+                require(newOwner == _superGovernorSafe(chainId), "FixedPriceOracle ownership transfer failed");
                 console2.log("[Verify] FixedPriceOracle new owner:", newOwner);
-            } else if (currentOwner == SUPER_GOVERNOR_ADDRESS) {
+            } else if (currentOwner == _superGovernorSafe(chainId)) {
                 console2.log("[Step 7] SKIPPED - FixedPriceOracle already owned by SUPER_GOVERNOR_ADDRESS");
             } else {
                 console2.log("[Step 7] WARNING - FixedPriceOracle owned by unexpected address:", currentOwner);

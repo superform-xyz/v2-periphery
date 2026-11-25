@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# Cap the per-tx gas limit. Without this, forge falls back to foundry.toml's
+# gas_limit = uint64-max, so the computed MAX FEE becomes astronomical and a
+# well-funded signer is rejected with "lack of funds for max fee". Observed on
+# Katana: 11.07 ETH max fee against a 0.00038 ETH balance, for a run that truly
+# costs 0.0000191 ETH. Same fix as the deploy_* and add_hooks_* runners.
+SCRIPT_GAS_LIMIT="${SCRIPT_GAS_LIMIT:-1000000000}"
+
 ###################################################################################
 # Transfer SUPER_GOVERNOR_ROLE Script - Staging & Production
 ###################################################################################
@@ -235,28 +242,11 @@ check_supergovernor_exists() {
     fi
 }
 
-# Load RPC URLs from credential manager
-load_rpc_urls() {
-    log "INFO" "Loading RPC URLs from credential manager..."
-
-    local failed_rpcs=()
-
-    echo "  • Loading Base RPC..."
-    if ! export BASE_MAINNET=$(op read op://5ylebqljbh3x6zomdxi3qd7tsa/BASE_RPC_URL/credential 2>/dev/null); then
-        failed_rpcs+=("BASE_RPC_URL")
-    fi
-
-    if [[ ${#failed_rpcs[@]} -gt 0 ]]; then
-        echo "❌ Failed to load the following RPC URLs from 1Password:"
-        for failed_rpc in "${failed_rpcs[@]}"; do
-            echo "   • $failed_rpc"
-        done
-        log "ERROR" "Failed to load RPC URLs"
-        return 1
-    fi
-
-    log "INFO" "✅ RPC URLs loaded successfully"
-}
+# NOTE: RPC loading is provided by networks-production.sh / networks-staging.sh,
+# which source_network_config() sources before load_rpc_urls() is called and which
+# loads EVERY network (with public fallbacks). A Base-only load_rpc_urls() used to be
+# defined here and was silently shadowed by that one; it has been removed so a future
+# reordering of those two calls cannot quietly reintroduce a Base-only loader.
 
 ###################################################################################
 # Role Transfer Execution
@@ -314,6 +304,7 @@ transfer_role_network() {
     if forge script script/TransferSuperGovernorRole.s.sol:TransferSuperGovernorRole \
         --sig 'run(uint256,uint64,string)' "$forge_env" "$network_id" "$salt_namespace" \
         --rpc-url "$rpc_url" \
+        --gas-limit "$SCRIPT_GAS_LIMIT" \
         $forge_flags \
         $slow_option \
         -vvv; then
