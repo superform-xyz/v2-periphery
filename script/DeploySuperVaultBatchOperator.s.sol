@@ -76,7 +76,7 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
         }
         console2.log("Admin:", admin);
         if (chainId == FLARE_CHAIN_ID) {
-            console2.log("Note: Flare uses deployer as admin (no Gnosis Safe available)");
+            console2.log("Note: Flare's Safe is FLARE_SUPER_GOVERNOR_ADDRESS, not SUPER_GOVERNOR_ADDRESS");
         }
         console2.log("Operator:", operator);
         console2.log("");
@@ -100,11 +100,20 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
     }
 
     /// @notice Get admin address based on chain
-    /// @dev Flare uses deployer (msg.sender) since Gnosis Safe is not available on Flare
+    /// @dev Flare's Safe lives at FLARE_SUPER_GOVERNOR_ADDRESS, not SUPER_GOVERNOR_ADDRESS
+    ///      (the latter has no code on Flare).
+    /// @dev NEVER return msg.sender here. Inside a forge script body msg.sender is forge's
+    ///      DEFAULT_SENDER (0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38 =
+    ///      keccak256("foundry default caller")[12:]), NOT the --account/--sender broadcaster.
+    ///      An earlier version returned msg.sender for Flare, so the live Flare
+    ///      SuperVaultBatchOperator (0xb7e49A6b09bAfC63bc66a8AdEdebe2828b65B84D) has
+    ///      DEFAULT_ADMIN_ROLE held by that unspendable address: batchEmergencyWithdraw is
+    ///      permanently uncallable there and OPERATOR_ROLE can never be rotated. Do not
+    ///      reintroduce msg.sender, tx.origin or any implicit caller as an admin.
     /// @param chainId Chain ID
-    function _getAdminForChain(uint64 chainId) internal view returns (address) {
+    function _getAdminForChain(uint64 chainId) internal pure returns (address) {
         if (chainId == FLARE_CHAIN_ID) {
-            return msg.sender;
+            return FLARE_SUPER_GOVERNOR_ADDRESS;
         }
         return SUPER_GOVERNOR_ADDRESS;
     }
@@ -149,6 +158,11 @@ contract DeploySuperVaultBatchOperator is DeployV2Base {
 
         // Validate inputs
         require(admin != address(0), "INVALID_ADMIN");
+        // Hard stop: the admin receives DEFAULT_ADMIN_ROLE in the constructor and AccessControl
+        // does not check for code. Granting it to an address with no code on this chain strands
+        // the role forever - which is exactly what happened on Flare. Same guard as
+        // DeploySuperVaultExecutor.
+        require(admin.code.length > 0, "ADMIN_HAS_NO_CODE_ON_THIS_CHAIN");
         // Hard stop: when the admin is the SuperGovernor Safe it must exist ON THIS CHAIN. AccessControl's
         // constructor grant does not check for code, so deploying with a codeless admin would strand
         // DEFAULT_ADMIN_ROLE permanently (e.g. Arc, where the Safe has not been recreated yet).

@@ -1227,7 +1227,7 @@
         "SuperVaultAggregator": "0x10AC0b33e1C4501CF3ec1cB1AE51ebfdbd2d4698",
         "SuperVaultStrategy": "0x770abd170404B8ed8182c04f380E567e647b457D",
         "SuperVaultEscrow": "0x8982cf48eaB6616f2892888410afad9b0CD2BC9B",
-        "SuperVaultBatchOperator": "0xb7e49A6b09bAfC63bc66a8AdEdebe2828b65B84D",
+        "SuperVaultBatchOperator": "0x2bd64763dFbfCf82Fe861f2Ba28ea3f4935A6550",
         "SuperVaultExecutor": "0x183e3171EEf801cE2A29FD48B3b21188f241875d",
         "ECDSAPPSOracle": "0x366d88F03B8EF34eb49F32a927ff6e1609F694F2",
         "FixedPriceOracle": "0x66b30A0Dda7F868796ADC3d70232950D65F3565c",

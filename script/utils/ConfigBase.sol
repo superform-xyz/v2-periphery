@@ -45,6 +45,11 @@ abstract contract ConfigBase is Constants {
     address internal constant GOVERNOR = 0x9e01f41da2212C1FBc32A041CfAEF72479FA48eC;
     address internal constant GUARDIAN = 0x5E8C68Ef250fdBcF696F838033CCcE23785DA03F;
     address internal constant SUPER_GOVERNOR_ADDRESS = 0x89226a5Fd572f380991Bb17c20c96ba91F98aD2e;
+
+    /// @notice Flare's Safe. Flare is the one chain where the fleet Safe lives at a DIFFERENT
+    ///         address than SUPER_GOVERNOR_ADDRESS, which has no code on Flare. Granting a role
+    ///         or ownership to SUPER_GOVERNOR_ADDRESS on Flare strands it permanently.
+    address internal constant FLARE_SUPER_GOVERNOR_ADDRESS = 0x0f0Db7CEDD49587D78d67175Ff59Ed7069A35874;
     address internal constant GAS_MANAGER = 0x4d7AACD4b72e6BC6eA0eee6AA61A773A8b556B99;
     address internal constant ORACLE_MANAGER = 0xC72F6950FBF6ffE315525E200F6E54A05F739311;
     address internal constant BANK_MANAGER = 0xBe3B40a05BA6120B73F94c5018Bc90E49A6275E7;
